@@ -1,0 +1,50 @@
+\section{Implementation and Evaluation}
+\label{sec:implementation}
+We have implemented the UPPRESSO prototype system, and evaluated its performance
+ by comparing it with (\emph{a}) the PPID-enhanced OIDC protocol \cite{MITREid}
+    which only prevents the RP-based identity linkage
+     and (\emph{b}) SPRESSO \cite{SPRESSO} which only prevents the IdP-based login tracing.
+
+\subsection{Prototype Implementation}
+First of all, three identity-transformation functions are defined over
+        the NIST P256 elliptic curve.
+%randomly choose a 2048-bit prime as $p$, a 256-bit prime as $q$, and the  $q$-order generators as $ID_{RP}$.
+%$N_U$ and $ID_U$  are 256-bit random numbers.
+%Then, the discrete logarithm problem provides equivalent security strength (i.e., 112 bits) as RSA-2048 \cite{barkerecommendation}.
+RSA-2048 and SHA-256 are adopted as the signature algorithm and the hash function, respectively.
+%in  the $Cert_{RP}$, identity token and RP identifier refreshing result.
+
+The IdP is built on top of MITREid Connect \cite{MITREid},
+    an open-source OIDC Java implementation, %certificated by the OpenID Foundation \cite{OIDF},
+    and only small modifications are needed as follows.
+We add only 3 lines of Java code to calculate $PID_U$,
+     about 20 lines to modify the way to send identity tokens,
+    and about 50 lines in the function of RP Dynamic Registration to support the step of $PID_{RP}$ registration
+            (i.e., checking $PID_{RP}$ and signing the registration result).
+The calculations of $ID_{RP}$, $PID_U$, and RSA signature are implemented based on Java built-in cryptographic libraries. %(e.g., BigInteger).
+
+The user-side functions are implemented by scripts from the IdP and RPs,
+     containing about 200 lines and 150 lines of JavaScript code, respectively.
+%to provide the functions in Steps 2.1, 2.3, and 4.3.
+The cryptographic computations, e.g., $Cert_{RP}$ verification and $PID_{RP}$ negotiation, are implemented based on jsrsasign \cite{jsrsasign}, an efficient JavaScript cryptographic library.
+%This chrome extension requires permissions  \emph{chrome.tabs} and \emph{chrome.windows} to obtain the RP's URL from the browser's tab,  and \emph{chrome.webRequest} to intercept, block, modify requests to the IdP or RP \cite{chromeExtension}.
+
+%send HTTPS request/reply and hijack the HTTPS responses, to obtain the RP's URL and communicate with IdP and RP.
+%and 30 lines  Chrome extension configuration files (specifying the required permissions, such as reading chrome tab information, sending the HTTP request, blocking the received HTTP response). to access to privileged fields of the Tab objects including
+
+%Here, the cross-origin HTTPS requests sent by this chrome extension to the RP and IdP, will be blocked by Chrome due to the default same-origin security policy.
+%To avoid this block, UPPRESSO modifies the IdP and RP, and sets \verb+chrome-extension://chrome-id+ (\verb+chrome-id+ is uniquely assigned by Google) in \verb+Access-Control-Allow-Origin+ header of the IdP's and RP's responses.
+
+%Moreover, the chrome extension needs to construct cross-origin requests to communicate with the RP and IdP, which is forbidden by the default same-origin security policy. Therefore it is required to add the HTTP header \verb+Access-Control-Allow-Origin+ in the response of IdP and RP to accept only the request from the origin \verb+chrome-extension://chrome-id+ (\verb+chrome-id+ is uniquely assigned by the Google).
+
+We provide a Java SDK for RPs in UPPRESSO.
+The SDK provides two functions to encapsulate the protocol steps:
+ one to request identity tokens,
+    and the other to derive the accounts from identity tokens.
+The SDK is implemented based on the Spring Boot framework  with about 1,000 lines of Java code
+ and cryptographic computations are implemented based on the Spring Security library.
+An RP only needs to invoke these two SDK functions for the integration,
+    by less than 10 lines of Java code.
+
+%RP processing login request containing  and identity token parsing containing $Account$ calculation in Figure \ref{fig:process}.
+

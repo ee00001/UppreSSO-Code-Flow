@@ -1,0 +1,236 @@
+\section{Security Analysis}
+\label{sec:formal}
+%Our formal analysis of UPPRESSO is based on the Dolev-Yao style web model presented in  \cite{SPRESSO}. However, in this paper we simplify the model, in particularly we assumed that DNS servers are always honest and the DNS requests and responses are always handled securely so that they are not considered in our model.  Moreover, we assume that HTTPs protocol is hundred-percent adopted and securely implemented, such that the web communications are secure and we will not focus on the encryption and decryption of these communications.
+
+We  formally analyze  the security properties of UPPRESSO based on the Dolev-Yao style web model \cite{SPRESSO}, which has been widely used in the formal analysis of SSO protocols such as OAuth 2.0 \cite{FettKS16} and OIDC \cite{FettKS17}. For brevity, we focus on the modifications introduced by UPPRESSO in this paper and neglect the proofs for the security of DNS and HTTPS requests. We refer interested readers to \cite{SPRESSO} for details.
+\subsection{The Web Model}
+\label{subsec:webmodel}
+The Dolev-Yao model abstracts the entities in a system, such as browsers and web servers, as {\em atomic processes}, which communicate with each other through the {\em events}. \cite{SPRESSO} also defines {\em scripting processes} to model client-side scripting such as JavaScript, so a web system consists of a set of atomic and scripting processes. The state of a system, called a {\em configuration}, consists of the current states of all atomic processes and all the events that can be accepted by these processes. We list the definitions of these notations as below \cite{SPRESSO}.
+
+%\vspace{1mm}
+\noindent{\em Messages}  are the basic data carriers among web nodes, such as HTTP requests and responses.
+\begin{comment}
+are defined as formal terms without variables (i.e., ground terms) over a {\em signature}. %Terms are defined as names, variables and function symbols. A function symbol with arity 0 (with no arguments) is a constant symbol.
+The signature $\Sigma$ consists of a finite set of function symbols (with arity). For messages in this mode, the signature $\Sigma$ contains constants such as ASCII strings and nonce, sequence symbols such as n-ary sequences $\langle \rangle$, $\langle . \rangle$, $\langle . ,. \rangle$, and function symbols that model cryptographic primitives such as $\mathtt{encrypt}, \mathtt{decrypt}$ and digital signatures. For example, an HTTP request can be modeled as a ground term containing a type (e.g., $\mathtt{HTTPReq}$), a nonce, a method (e.g., $\mathtt{GET}$ or $\mathtt{POST}$), a domain, a path, URL parameters, request headers and a message body, over the $\Sigma$ in the sequence symbol format. So,
+an HTTP GET request for the domain {\sf exa.com/path?para=1} with empty header and body can be represented as: $m:=\langle\mathtt{HTTPReq},n,\mathtt{GET},exa.com,/path,\langle \langle para, 1\rangle \rangle ,\langle \rangle,\langle \rangle \rangle$.
+\end{comment}
+
+\noindent{\em Events} are the basic communication elements in the model. An event contains the addresses of sender and receiver and a message.
+%An event is of the form $\langle a, f, m \rangle$, where $a$ and $f$ represent the addresses of the sender and receiver respectively, and $m$ is the message to be transmitted.
+
+\noindent{\em Atomic Processes.} An {\em atomic Dolev-Yao (DY) process} is a tuple $p=$ $(I^p, Z^p, R^p,s_0^p )$, where $I^p$ is the set of addresses that the process listens to, $Z^p$ is the set of states (i.e., terms) that describes the process, $s_0^p$ is an initial state, and $R^p$ is the mapping from an input state $s \in Z^p$ and an event $e$ to a new state $s'$ and an event $e'$. %It is worth noting that for one process in a state, only a finite set of events can be accepted by the process as the state and event are defined as the input of $R^p$.
+Each atomic process also contains a set of nonces that it may use.
+
+\noindent{\em Scripting Processes} represent client-side scripts loaded by the browser to provide server-defined functions to the browser. However, a scripting process must rely on an atomic process, such as the browser, and provide the relation $R$ called by this atomic process.
+
+\begin{comment}
+\noindent{\em Equational theory} is defined as usual in Dolev-Yao models, which uses the symbol $\equiv$ to represent the congruence relation on terms. For example, $dec(enc(m, k), k)$ $\equiv$ $m$, where $k$ is a symmetric key.
+
+\noindent {\em Static equivalence.} As defined in \cite{SPRESSO}, two messages $t_1$ and $t_2$ are statically equivalent, denoted as $t_1 \approx t_2$, if and only if, for all terms such as $M(x)$ and $N(x)$ which only contain one variable $x$ without nonce, it is true that $M(t_1)$ $\equiv$ $N(t_1)$ \textbf{iff} $M(t_2)$ $\equiv$ $N(t_2)$. For instance, for messages $m$ and $m'$, and a symmetric key $k$, $enc(m, k)$ $\approx$ $enc(m', k)$ is always true to the attacker who does not know $k$.
+
+Using static equivalence, we define equivalence of $modpow$ function as below. We also define equivalence of HTTP requests and events. Please find the details of the definitions in the Appendix.
+\begin{definition}
+For a large prime $p$ (2048-bit length) and $p-1$'s prime factor $q$ (256-bit length), there are two constants $g_1$, $g_2$ as the generators of $p$ and the constants $n_1$, $n_2$ ($n_1$, $n_2$ $<$ $q$). We define the function symbol $modpow(a, b, p)$ $=$ $a^b \mod p$, there are $modpow(g_1, n_1, p)$ $\approx$ $modpow(g_2, n_2, p)$ and  $modpow(g_1, n_1, p)$ $\approx$ $modpow(g_1, n_2, p)$  always true due to the discrete logarithm problem as the $n_1$ and $n_2$ are unknown.
+\label{def:powequ}
+\end{definition}
+
+
+\begin{definition}
+\noindent\textbf{Equivalence of HTTP requests}. There are messages $m_1$ and $m_2$, we say that $m_1$ $\approx$ $m_2$ \textbf{iff} the following conditions are met,
+\vspace{-\topsep}
+\begin{itemize}
+\setlength{\itemsep}{0pt plus 1pt}
+\item If $m_1$ and $m_2$ are HTTPs requests, they are  equivalent to the observers besides of the receiver.
+\item If  $m_1$ and $m_2$ are HTTPs requests, they are equivalent for the receiver \textbf{iff} the value of the Host,Path,Origin and Referer headers in both requests are same, as well as the value of the Parameters and Body are statically equivalent.
+\item If  $m_1$ and $m_2$ are HTTP requests, they are equivalent to all the observers as the equivalent HTTPS requests to receivers.
+\end{itemize}
+\setlength{\itemsep}{0pt plus 1pt}
+\label{def:httpequ}
+\end{definition}
+\begin{definition}
+\noindent\textbf{Equivalence of events}.
+There are events $e_1$ := $\langle a_1, f_1, m_1 \rangle$ and $e_2$ := $\langle a_2, f_2, m_2 \rangle$, we say that $e_1$ $\approx$ $e_2$ \textbf{iff}
+\vspace{-\topsep}
+\begin{itemize}
+\item $a_1$ $\equiv$ $a_2$ or $a_1$ and $a_2$ belong to random addresses.
+\item $f_1$ $\equiv$ $f_2$ or $f_1$ and $f_2$ belong to random addresses.
+\item $m_1$ and $m_2$ are equivalent.
+\end{itemize}
+\label{def:eventequ}
+\end{definition}
+\vspace{-\topsep}
+\end{comment}
+
+\noindent {\bf Web system.} We can represent the web infrastructure as a web system of the form ($\mathcal{W}$, $\mathcal{S}$, $\mathtt{script}$, $E^0$), where $\mathcal{W}$ is the set of atomic processes containing both honest and malicious processes, $\mathcal{S}$ is the set of scripting processes including honest and malicious scripts, $\mathtt{script}$ is the set of concrete script codes related to specific scripting processes in $\mathcal{S}$, and $E^0$ is the set of events acceptable to the processes in $\mathcal{W}$.
+
+\noindent A {\em configuration} of this web system is a tuple ($S, E, N$), where $S$ is the current states of all processes in $\mathcal{W}$, $E$ is the set of events that the processes accept, and $N$ is a global sequence of nonces that have not been used by the processes yet.
+
+\noindent A {\em run step} is the system migrating from configurations ($S, E, N$) to ($S', E', N'$) by processing an event $e \in E$.
+
+\noindent\textbf{The Formal Model of UPPRESSO.}
+Accordingly, we model UPPRESSO as a web system, which is defined as $\mathcal{UWS} = (\mathcal{W}, \mathcal{S}, \mathtt{script}, E^0)$. $\mathcal{W}$ is a finite set of atomic processes in UPPRESSO, which contains an IdP process, a finite set of web servers for the honest RPs, a finite set of honest browsers, and a finite set of attacker processes. Here, we consider all the RP processes and browser processes are honest, and model an RP or a browser controlled by an adversary as an atomic attacker process.
+%We assume  all the honest RPs are implemented following the same rule so that the processes are considered consistent besides of the addresses they listen to.
+$\mathcal{S}$ is a finite set of scripting processes, which contains {\sf script\_rp}, {\sf script\_idp} and {\sf script\_attacker}, where {\sf script\_rp} and {\sf script\_idp} are honest scripts downloaded by an RP process and the IdP process, and {\sf script\_attacker} denotes a script downloaded by an attacker process that exists in all browser processes.
+The details about each process are described in Appendix.
+\begin{comment}
+ Below is a brief description about the processes and scripts in UPPRESSO.
+\vspace{-\topsep}
+\begin{itemize}
+\item A browser is an atomic process, which is responsible for sending HTTP requests, receiving HTTP responses, handling user actions, and transmitting messages between scripting processes. As the browsers are considered honest, in the remaining analysis, we focus only on the scripting processes running in the browsers. We refer interested readers to Appendix C and \cite{SPRESSO} for more details about the browser process.
+\item The IdP process (defined as $p^i$) only accepts the events whose message is an HTTP request with a path in the set of {\sf \{/script, /dynamicRegistration, /login, /loginInfo, /authorize\}}. %The function of each path is shown in Section \ref{sec:UPPRESSO}.
+All the events can be accepted by $p^i$ in any state, but the output may vary. %The detailed $R^i$ is shown in *.
+\item The RP process (denoted as $p^r$) only accepts the events whose message is an HTTP request with a path in {\sf \{/script, /login, /startNegotiation, /registrationResult, /uploadToken\}}. %The function of each path is shown in Section \ref{sec:UPPRESSO}.
+However, an event with a path in {\sf \{ /script, /login, /startNegotiation\}} can be accepted in any state, while an event with a path $\equiv$ {\sf /registrationResult} is accepted only when the state $s$ is the output of an event whose path $\equiv$ {\sf /startNegotiation}. Similarly, the following accepted events should have a path in {\sf \{/registrationResult, /uploadToken\}}.
+\item The IdP and RP scripting processes accept the events in the form of HTTP response and postMessage. %The details about accepted events are shown in \ref{*}.
+\end{itemize}
+\end{comment}
+
+\subsection{Security of UPPRESSO}
+At the very beginning, it is to be emphasized that, whether an RP accepted $Acct$ can be controlled by an adversary may be the most noticeable question for readers.
+%, as it can caused the essential attack that the adversary can impersonate other honest users by controlling the $Acount$.
+For example, the adversary may try to make the conflict $Acct_1=ID_{U_1}ID_{RP_1}$, $Acct_2=ID_{U_2}ID_{RP_2}$, and $Acct_1=Account_2$ possible, where $ID_{U_1}$ and $ID_{RP_1}$ belong to the honest user and RP.
+Here we give the direct conclusion and brief proofs in advance. \textbf{The $PID_U$ achieved by an adversary cannot be transformed into the honest user's $Acct$ at an honest RP.}
+%That is, while an RP $R$ receive an identity token related with an honest user $u$'s $Acct$, this identity token must be issued to $u$ for $r$.
+
+\noindent\textbf{Proof. }
+While the $PID_{U_{adv}}$ is achieved by the adversary, it must be in the form $PID_{U_{adv}}=$ (a) $ID_{U_{adv}}PID_{RP_{adv}}$; (b) $ID_{U}PID_{RP_{adv}}$; or (c) $ID_{U_{adv}}PID_{RP}$.
+ Due to the $PID_{RP}$ registration, the (a) and (b) cannot be accepted by honest RP. In (c) the $PID_{RP}$ must be created as $N_UID_{RP_{hon}}$, while the hash($N_U$) is included in the registration result. Moreover, the trapdoor $T=N_U^{-1} \bmod n$ cannot be controlled by the adversary. So, the $PID_{U_{adv}}$ must be transformed into $ID_{U_{adv}}ID_{RP_{hon}}$ (i.e., the $Acct$). Therefore, the $Acct$ cannot be controlled by the adversary.
+%An identity token contains the $PID_{RP}$ and $PID_{U}$, and it follows the relation $PID_U=ID_UPID_{RP}$. RP is going to transform into $Acct$ with the trapdoor $N^{-1}$. However, during the registration phase in authentication, the RP received the registration token including $PID_{RP}$ and $hash(N)$, which confirms that $N^{-1}PID_{RP}=ID_{RP}$. Therefore, the RP would achieve the $Acct=ID_UR$ ($R$ is the real ID of this RP). As $ID_U$ is unique for each user, the efforts of the adversary in making the conflicted $Acct_1$ and $Acct_2$ is impossible.
+
+In the security analysis, we consider web systems $\mathcal{UWS}$ defined in Section \ref{subsec:webmodel}.
+In this model, we consider only
+%As and postMeassage is correctly implemented in the browsers, in the following analysis, we consider there is no web attacker who can listen to and send messages from its own address, but one network attacker who is able to listen to and spoof all addresses. The
+the network attackers can control (malicious) browsers and RPs.
+The analysis of the security of UPPRESSO is to prove the below theorem:
+\vspace{-\topsep}
+\begin{theorem}
+Let $\mathcal{UWS}$ be a UPPRESSO web system defined above. Then, $\mathcal{UWS}$ is secure.
+\label{the:secure}
+\end{theorem}
+\vspace{-\topsep}
+In Section \ref{subsec:basicrequirements}, we describe the fundamental security properties that an SSO system should satisfy with.  The adversary should not succeed in \emph{impersonation attacks}) or \emph{identity injection attacks}.
+We consider the visits to an RP's resource paths are controlled by the visitors' cookie. So, if such a system exists, the attacker could break the security only if he owns the cookie bound to the honest user.
+Therefore, we define a secure UPPRESSO as below.
+%Confidentiality and integrity require that the identity token from the IdP cannot be intercepted or altered. As we assume tall the messages transmitted using HTTPS, we can prove that the encrypted communications over HTTPS between honest entities cannot be tampered by the network attacker. Therefore, an honest RP can receive correct identity tokens and retrieve the correct key for signature verification from the IdP through the honest browsers. For brevity, we do not include the detailed proofs here, which are similar to the proof in \cite{SPRESSO}.
+
+%User identification and RP designation informally require that {\em an attacker should not be able to log in to an honest RP as an honest user}. To prove this property, we assume there exists a UPPRESSO web system in which an attacker can log in to an honest RP as an honest user, and show this assumption leads to a contradiction. We consider the visits to an RP's resource paths are controlled by the visitors' cookie. So, if such a system exists, the attacker could break the security if and only if he owns the cookie bound to the honest user. %the attacker should be able to obtain an authenticated cookie for an honest user.
+\vspace{-\topsep}
+\begin{definition}
+Let $\mathcal{UWS}$ be a UPPRESSO web system. $\mathcal{UWS}$ is secure {\em iff} any authenticated cookie $c(u,r)$ of an honest user $u$ for an honest RP $r \in \mathcal{W}$ is unknown to the attacker $a$.
+\label{def:secure}
+\end{definition}
+\vspace{-\topsep}
+To prove that an attacker $a$ does not know the authenticated cookie $c(u,r)$, we want to show that (A) $a$ cannot obtain any $c(u,r)$ owned by $u$; (B) if $c$ is an unauthenticated cookie owned by $a$, $c$ cannot be set as $c(u,r)$, i.e., being authenticated by $r$ for $u$; and (C) an honest user $u$ should not use the attacker's cookie to visit an honest RP (i.e., $c(a,r)$).
+
+$\mathcal{UWS}$ meeting the requirement (A) can be proved by the following Lemma.
+%\begin{itemize}
+%\item If $c$ is the authenticated cookie owned by $u$, $c$ cannot be obtained by $a$.
+%\item If $c$ is an unauthenticated cookie owned by $a$, $c$ cannot be authenticated by $r$ for $u$.
+%\item The user $u$ does not use the attacker's cookie $c_a$.
+%\end{itemize}
+%\vspace{1mm}\noindent\textbf{Proof Outline. }
+%Here we introduce the lemmas briefly to prove that $\mathcal{UWS}$ follows the requirements by Definition \ref{def:secure} so that $\mathcal{UWS}$ is secure. And the detailed proofs to these lemmas are in  \ref{*}.
+\vspace{-\topsep}
+\begin{lemma}
+The cookie owned by an honest user cannot be leaked to the attacker.
+\label{lemma:cookie}
+\end{lemma}
+%\begin{proof}
+\vspace{-\topsep}
+First, due to the same-origin policy, an honest browser should not leak the cookie to any attacker. Based on the UPPRESSO model, we also prove that the RP and the RP script will not send any cookie to other processes. Therefore, the attackers cannot obtain the $u$'s authenticated  cookie.
+
+Next, to prove $\mathcal{UWS}$ satisfies Requirement (B), we define the process that authenticates a cookie as below.
+%\end{proof}
+\vspace{-\topsep}
+\begin{definition}
+In $\mathcal{UWS}$, a cookie $c$ is set as an authenticated cookie $c(u,r)$ for a user $u$ and an RP $r$ only when $r$ receives a valid identity token of $u$ from the owner of $c$.
+\label{def:cookie}
+\end{definition}
+\vspace{-\topsep}
+%Then we are going to prove that $\mathcal{UWS}$ follows the requirements that the cookie of the attacker cannot be set authenticated.
+%Here we propose the lemmas.
+\vspace{-\topsep}
+\begin{lemma}
+In $\mathcal{UWS}$, an attacker cannot obtain the password of an honest user $u$.
+\label{lemma:password}
+\end{lemma}
+\vspace{-\topsep}
+\vspace{-\topsep}
+\begin{lemma}
+In $\mathcal{UWS}$, an attacker cannot forge or modify the tokens issued by the IdP.
+\label{lemma:unforged}
+\end{lemma}
+\vspace{-\topsep}
+%\begin{proof}
+Lemma \ref{lemma:password} can be easily proved because the password is only sent by an honest IdP scripting process to the IdP. Lemma \ref{lemma:unforged} can be proved by showing that the tokens issued by the IdP process are signed and verified. With Lemma \ref{lemma:password} and Lemma \ref{lemma:unforged}, we can prove the following lemma.
+%\end{proof}
+\vspace{-\topsep}
+\begin{lemma}
+In $\mathcal{UWS}$, an attacker cannot obtain a valid identity token for an honest user $u$.
+\label{lemma:token}
+\end{lemma}
+%\begin{proof}
+\vspace{-\topsep}
+Here, we provide a brief proof for Lemma \ref{lemma:token}.
+According to the proof at the beginning of this section, it is proved that the $Acct$ accepted as $u$ by RP must be issued for $u$. Moreover,  an honest user $u$ only sends the identity token from the IdP scripting process to the receiver specified by the RP certificate $cert_r$.  Therefore, an adversary cannot achieve a valid identity token.
+%A valid identity token can only be obtained from one of the four processes: the IdP process, the RP process, the IdP scripting process and the RP scripting process. According to the model, the honest RP scripting processes only send identity tokens to an honest RP, while the RP never sends the tokens to any other process. So, only the process that holds $u$'s password can obtain $u$'s identity token from the IdP. As the attacker does not know $u$'s password, he cannot receive the identity token of $u$ from the IdP process. Finally, it is a little complicated to prove that the attacker cannot obtain the identity token from the IdP scripting process. So, we only describe it intuitively. That is, an honest user $u$ only sends the identity token from the IdP scripting process to the receiver specified by the RP certificate $cert_r$. And, an identity token is valid to an honest RP $r$ only if $cert_r$ belongs to $r$ (we include a full proof in the Appendix).
+%\end{proof}
+
+Then, we prove a $\mathcal{UWS}$ system meets the requirement (C). We here propose another lemma.
+%First, the attacker cannot set $c(a,r)$ with the RP's origin in an honest browser due to the same-origin policy. According to Definition \ref{def:cookie}, the RP $r$ sets $c(a,r)$ in an honest browser $u$ if it receives an identity token with the attacker's $PID_U$ and a valid $PID_{RP}$ generated by $u$ and $r$. This requires the attacker to know a valid $PID_{RP}$. According to the following lemma, the attacker cannot obtain an identity token with a valid $PID_{RP}$.
+\vspace{-\topsep}
+\begin{lemma}
+The attacker cannot know a valid $PID_{RP}$ negotiated by a user $u$ and an RP $r$.
+\label{lemma:PID}
+\end{lemma}
+\vspace{-\topsep}
+In UPPRESSO, an RP shares different $PID_{RP}$s with different users. According to this lemma, the adversary cannot forge the token accepted by RP in an honest user's login session. Therefore, the requirement (C) is satisfied.
+
+
+Finally, we prove $\mathcal{UWS}$ satisfies requirements (A) and (B) in Definition \ref{def:secure}. As a result, Theorem \ref{the:secure} is proved.  Due to space limit, we include all the detailed proofs of the lemmas and theorems in Appendix \ref{ape:model}.
+
+\begin{comment}
+\subsection{Privacy of UPPRESSO}
+We adopt a similar web model as above, which contains web attackers instead of network attackers. Then, we show the privacy of UPPRESSO by proving Theorem \ref{the:privacy}.
+\begin{theorem}
+Let $\mathcal{UWS}$ be a UPPRESSO web system. Then, $\mathcal{UWS}$ is IdP-Privacy and RP-Privacy.
+\label{the:privacy}
+\end{theorem}
+\vspace{-\topsep}
+First, we define IdP-Privacy and RP-Privacy as follows.
+\begin{definition}
+\noindent\textbf{IdP-Privacy.} Let $\mathcal{UWS}$ be a UPPRESSO web system. Given honest RPs $r_1, r_2 \in \mathcal{W}$, the IdP $i \in \mathcal{W}$ and an honest user $u$, $\mathcal{UWS}$ is IdP-Privacy {\em iff} for each event $e_1$ received by $i$ associate with to $u$'s login session to $r_1$, there always exists an event $e_2$ associated with $u$'s login session to $r_2$, and $e_1$ and $e_2$ are equivalent.
+\label{def:idpprivacy}
+\end{definition}
+\vspace{-\topsep}
+Here, we provide a brief proof that $\mathcal{UWS}$ meets the requirements defined in Definition \ref{def:idpprivacy}. First, all events to the IdP over HTTPS should be considered as equivalent to the web attacker. Since the IdP is assumed honest but curious, $i$ holds only the events to an IdP process and does not attempt to fetch parameters from other processes or set illegal parameters in the system. Let us consider multiple requests from a same user. The IdP only accepts the events whose message is an HTTP request with a $path$ in the set of {\sf \{/script, /dynamicRegistration, /login, /loginInfo, /authorize\}} that are visited in each login session. Since the visits to {\sf /script} and {\sf /loginInfo} carry no parameter nor body, these events from two different login sessions are considered equivalent to $i$. Moreover, as the visits to {\sf /login} only carry $u$'s username and password, these events are also equivalent. Finally, the visits to {\sf /dynamicRegistration} and {\sf /authorize} carry $PID_{RP}$s and $endpoint$s, where $PID_{RP}$s are statically equivalent because of Definition \ref{def:powequ} and $endpoint$s are unrelated random constants, thus these events are also considered equivalent.
+\begin{definition}
+\noindent\textbf{RP-Privacy} Let $\mathcal{UWS}$ be a UPPRESSO web system. For honest RPs $r_1, r_2$ $\in$ $\mathcal{W}$ and honest users $u_1$ and $u_2$, $\mathcal{UWS}$ is RP-Privacy {\em iff} $r_1$ and $r_2$ share states,
+\vspace{-\topsep}
+\begin{itemize}
+\setlength{\itemsep}{0pt plus 1pt}
+\item for each event $e_1$ received by $r_2$ that is associated with $u_1$'s login session to $r_2$, there always exists an event $e_2$ associated with $u_2$'s login in to $r_2$ and $e_1$ and $e_2$ are equivalent to $r_1$.
+\item for each event received by $r_2$, the event cannot be directly linked to an existing user's attributes at $r_1$.
+\end{itemize}
+\label{def:rpprivacy}
+\end{definition}
+\vspace{-\topsep}
+The RP process accepts the events whose message is an HTTP request with a $path$ in {\sf \{/script, /login, /startNegotiation,  /registrationResult, /uploadToken\}}. When the RP is malicious, we should consider the events received by the RP scripting process. However, as all the messages received by the RP scripting process are transmitted to the RP, we focus only on the events received by the RP.
+
+Similar, we can prove $\mathcal{UWS}$ meets the requirements defined in Definition \ref{def:rpprivacy}. First, we assume all the parameters are set legally. As the events visiting {\sf /script} and {\sf /login} carry no parameter and body, they are equivalent. Since the visits to {\sf /startNegotiation} carry only the nonce, these events are also equivalent. The visits to {\sf /registrationResult} carry the registration result, which contains $PID_{RP}$, $N_U$ and $endpint$ and is signed by the IdP. As the content of the result can be viewed as random constant, the events can also be considered as equivalent. The visits to {\sf /uploadToken} includes the identity token containing $PID_{RP}$ and $PID_U$. According to Definition \ref{def:powequ}, $PID_U$s are statically equivalent to $r_1$. Finally, even when $r_2$ share state with $r_1$, $r_1$ still cannot convert an $Acct_{r_1}$ to an account $Acct_{r_2}$ at $r_2$, so that the events cannot be linked to an existing user. %Therefore, the requirements in Definition \ref{def:rpprivacy} are met.
+
+Then, we consider the case that malicious RPs exist in the system. %They may attempt to steal data from other processes or set malicious parameters in a login session.
+According to Definition \ref{def:powequ}, $PID_U$ and $Accts$ seem equivalent to the attacker who does not know $ID_U$. However, the attacker cannot obtain $ID_U$ from other UPPRESSO processes, since the IdP never sends out $ID_U$ in clear. Next, we prove that a malicious RP cannot derive $ID_U$ from $PID_U$ or $Acct$, even if it can manipulate the generation of $PID_U$ and $Acct$. First, the malicious RP may use a forged $ID_{RP}$ to make $PID_U$ or $Acct$ inequivalent. However, such illegal $ID_{RP}$ can be detected by the IdP scripting process of an honest user. Moreover, the malicious RP may make a same user submit the identity token with the same $PID_U$. However, as $PID_U$ is generated with a nonce $N_U$ chosen by the user, the RP cannot manipulate $PID_U$.
+\vspace{-\topsep}
+\begin{itemize}
+\setlength{\itemsep}{0pt plus 1pt}
+\item RP may lead the login using the forged  so that $PID_U$s and $Accts$ are no more equivalent. However, $ID_{RP}$ are provided by the $Cert$ which is verified at algorithm \ref{alg3} line 17, by the IdP's public key set initially and not modified.  $PID_{RP}$ is generated by the $ID_{RP}$ at line 21 using the honest user generated nonce at line 20. Therefore, it is impossible to lead the honest user to use the illegal $ID_{RP}$ and $PID_{RP}$.
+\item RP may also lead the same user to upload the identity token with same $PID_U$ or $Acct$ so that the system is not RP-Privacy according to requirement \ref{req:rp}. However, the $PID_U$ is generated containing the user's generated nonce $N_U$ so that it is not controlled by the RP. $Acct$ is generated as the form $ID_{RP}^{ID_U} \mod p$, while RPs may lead the user to use the same $ID_{RP}$ to generate identity token. However, the $ID_{RP}$ is bound with $Cert$ which is verified by the user and it is easy for user to find out the login RP  does not coincide the RP name shown on her browser.
+\end{itemize}
+
+Now, we prove that system meets all the requirements in Definition \ref{def:rpprivacy}. Therefore, Theorem  \ref{the:privacy} is proved.
+\end{comment}
+
+
+
+

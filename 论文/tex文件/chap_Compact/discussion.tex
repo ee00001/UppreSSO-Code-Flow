@@ -1,0 +1,139 @@
+\section{Discussions}
+\label{sec:discussion}
+%We first discuss the scalability, security against DoS attack and OIDC authorization code flow support in UPPRESSO, and then present the extensions for UPPRESSO.
+
+%Some related issues are discussed in this section.
+
+
+%%Scalbility
+%\vspace{1mm}\noindent{\textbf{Scalability.}} The adversary cannot exhaust $ID_{RP}$ and $PID_{RP}$.
+%For $ID_{RP}$, it is generated only in RP's initial registration.
+%For $PID_{RP}$,  in practice, we only need to ensure all $PID_{RP}$s are different among the unexpired identity token (the number denoted as $a$).
+%We assume that IdP does not perform the uniqueness check, and then calculate the probability that at least two $PID_{RP}$s are equal in these $a$ ones. The probability is $1-\prod_{i=0}^{a-1}(1-i/q)$ which increases with $a$.
+%For an IdP with throughput $2*10^8$ req/s, when the validity period of the identity token ($PID_{RP}$) is set as 5 minutes, $a$ is less than $2^{36}$, then the probability is less than $2^{-183}$ for 256-bit $q$ (the order of base point $G$ on \verb+P-256+).
+%%Moreover, as this probability is negligible, the uniqueness check of $PID_{RP}$, i.e., the $PID_{RP}$ registration, could be removed in the SSO login process, and this optimization can be adopted when this negligible probability is acceptable by the users and RPs.
+
+%%DoS
+%%Security against ID exhaustion DoS
+%%1.用户被鉴别过的，可以事后审计的； 2. IdP， 本来对OIDC是做一次数字签名， 加了一次模幂，资源消耗 --> DoS attack
+%\vspace{1mm}\noindent{\textbf{Security against DoS attack.}}
+%The adversary may attempt to perform DoS attack on the IdP and RP. For example, the adversary may act as a user to invoke the $PID_{RP}$ registration and identity token generation at the IdP, which requires the IdP to perform two signature generations and one modular exponentiation.
+%However, as the user has already been authenticated at the IdP, the IdP could identify the malicious users based on audit, in addition to the existing DoS mitigation schemes.
+%%The adversary may act as a user requesting to log into an RP, and make the RP perform two modular exponentiations.
+%%The RP could previously calculated a set of $Y_{RP}$s to mitigate this attack.
+
+%\vspace{1mm}
+\noindent{\textbf{Applicability.}}
+Three identity-transformation functions, i.e., $\mathcal{F}_{PID_{RP}}()$, $\mathcal{F}_{PID_U}()$, and $\mathcal{F}_{Acct}()$,
+    are applicable to various SSO scenarios
+        (e.g., web application, mobile App, and even native software),
+    because these designs do not depend on any special implementation or runtime environment.
+Although the prototype system runs for web applications,
+    it is feasible to apply the identity-transformation functions to other SSO scenarios
+        to protect user privacy.
+Moreover,
+    because the authentication steps are independent of the UPPRESSO protocol,
+the IdP can choose any appropriate mechanism to authenticate users.
+    
+    
+%In this paper, the functions are implemented based on the elliptic curve algorithm and the mechanism provided by OIDC system.
+%However, the transformation functions can also be implemented based on other mechanisms according to the protocol and environment, for example, the TPM may be used to take responsibility to transform identities.
+
+
+%授权码
+%兼容:目前只提供隐式模式,对其他模式与协议的兼容方法
+\vspace{1mm}\noindent{\textbf{Compatibility with the Authorization Code Flow.}}
+In the authorization code flow of OIDC \cite{OpenIDConnect},
+    the IdP does not directly issue the identity token;
+        instead,
+            an access token is forwarded to the RP,
+            and then the RP uses this access token to ask for identity tokens from the IdP.
+The identity-transformation functions $\mathcal{F}_{PID_{U}}$, $\mathcal{F}_{PID_{RP}}$ and $\mathcal{F}_{Account}$
+    can be integrated into the authorization code flow to generate and verify two tokens,
+ so that the privacy threats are still prevented in the generation and verification of tokens.
+Accordingly,
+    only $PID_{RP}$ but not $ID_{RP}$ is enclosed in the access tokens (as well as the identity tokens).
+However,
+    as the RP receives the identity token directly from the IdP in this flow,
+            it allows the IdP to obtain the RP's network information (e.g., IP address).
+Therefore,
+to prevent this leakage in the authorization code flow,
+    UPPRESSO needs to integrate anonymous networks (e.g., Tor) for the RP to ask for identity tokens.
+
+%平台无关
+%Similar as SPRESSO, we can integrated for***
+%SPRESSO跨平台:我们目前的方案只在browser实现
+%我们现在的实现使得一个用户不需要在机器上存任何东西，只有装那个插件。这个实现可以进一步推广到这个插件都不用安装***
+%\vspace{1mm}\noindent{\textbf{Platform independent.}}
+%Our current implementation only requires the user to install a Chrome extension and doesn't need to store any persistent data at the user's machine.
+%Moreover, the implementation could  be further extended to remove the Chrome extension, whose JavaScript program is then fetched from the honest IdP. The processing is similar as SPRESSO. That is, 1) the RP's window (window A)  opens a new iframe (window B) to visit the RP's web page, while the RP's web page redirects window B to the IdP; 2) window B downloads the JavaScript  program from the IdP and performs the processing in Steps 1.3, 1.5, 2.1, 3.2 and 3.5; 3) then postMessages are adopted to exchange messages between window A and B for Steps 1.2, 1.3, 1.4, 2.3, 3.1 and 3.5.
+%The opener handle of window B is preserved (i.e., window A) for the postMessage, as window A  opens window B with a web page from the RP;
+ %and window B is redirected to the IdP with \emph{noreferrer} attribute set, to prevent the browser from sending RP's URL in the Referrer header to the IdP.
+
+
+
+%malicious IdP
+%标题，collusive RPs-->PSI PSI实现的前提条件被破坏。 PSI使得RP在不侵犯用户隐私的前提下，进行idenity linkage。
+%RP designation --> RP specification / binding
+%The primary goal of SSO services is to implement secure user authentication [6], ---> 6多加几个参考文献
+%User privacy leaks in all existing SSO protocols and implementations. -->加几个参考文献
+
+
+
+
+
+
+%1) RP's window opens a new window to download a document from RP; 2) the document uses JavaScript to navigate this window to IdP, while the noreferrer attribute is set to clear Referer header and prevent the browser from sending RP's URL to the IdP; 3) this window downloads the  JavaScript  program from IdP and performs the processing in Steps 2.1.3, 2.2.1, 2.4 and 5.2; 4) the opener handle of this new window is preserved (i.e., RP's window) and then postMessages can be adopted to exchange messages between the two windows for Steps 2.1.4, 2.1.6, 2.2.4, 2.3 and 5.3.
+
+%the RP's web page initiates the loading of IdP's web page and sets the attribute (rel="noreferrer") to prevent the browser from sending Referer header with RP's URL to the IdP; 2) the IdP's web page contains the JavaScript program for user's processing in Steps 2.1.3, 2.2.1, 2.4 and 5.2; 3) postMessages is adopted
+%; and 4) the correct RP sets subresource integrity (SRI) to prevent the IdP from providing incorrect JavaScript programs.
+%A native web technology called subresource integrity (SRI)7 is currently under development at the W3C. SRI allows a document to create an iframe with an attribute integrity that takes a hash value. The browser now would guarantee that the document loaded into the iframe hashes to exactly the given value. So, essentially the creator of the iframe can enforce the iframe to be loaded with a aspecific document. This would enable SPRESSO to automatically check the integrity of FWDdoc without any extensions.
+
+
+
+%While USPRESS is designed for semi-honest IdP, it could be extended to prevent
+
+
+%\noindent{\textbf{Malicious IdP mitigation.}} The IdP is assumed to assign a unique $ID_{RP}$ in $Cert_{RP}$ for each RP and generate the correct $PID_U$ for each login. The malicious IdP may attempt to provide the incorrect $ID_{RP}$ and $PID_U$, which could be prevented by integrating certificate transparency \cite{rfc6962} and user's identifier check \cite{SPRESSO}. With certificate transparency \cite{rfc6962}, the monitors  check the uniqueness of $ID_{RP}$ among all the certificates stored in the log server. To prevent the malicious IdP from injecting any incorrect $PID_U$, the user could provide a nickname to the RP for an extra check as in SPRESSO \cite{SPRESSO}.
+
+
+
+\vspace{1mm}\noindent{\textbf{Implementation with Browser Extensions.}}
+To improve the portability of user agents,
+    the user functions of UPPRESSO are implemented by browser scripts in the prototype system.
+However,
+    these functions can be implemented with browser extensions,
+    which will result in much better performance.
+In this case,
+    a user downloads and installs the browser extension,
+    before he visits the RPs.
+After some experiments while the IdP and RPs in the prototype system are unmodified,
+    we find that at least 102 ms will be saved for each login instance (i.e., about 208 ms in total),
+    compared with the version implemented with browser scripts.
+
+\vspace{1mm}
+\noindent{\textbf{Collusive Attacks by the IdP and RPs.}}
+If the IdP is kept curious-but-honest and shares messages in the login flow (i.e.,
+$ID_U$, $PID_{RP}$, $PEnpt_U$, $H(t)$, and $PID_U$)
+        with some collusive RPs,
+UPPRESSO still provides secure SSO services,
+    provided that the signed identity tokens are sent to the authenticated users only.
+Moreover, in this case, a user's login activities at the other RPs,
+        are still protected from the IdP and these collusive RPs,
+        because a triad of $t$, $PID_U$ and $PID_{RP}$ is ephemeral and independent of each other.
+
+%\vspace{1mm}
+%\noindent{\textbf{Active Identity Linkage by Malicious RPs.}}
+%When a user logins to multiple RPs \emph{concurrently} on one device as different accounts,
+%        malicious RPs might actively correlate the accounts by online means.
+%For instance,
+%     when the user has logined to $RP_j$ with $Acct_j$,
+%         malicious $RP_j$ might try to redirect $Acct_j$ to another $RP_{j'}$ through a hidden iframe in the browser.
+%As long as he has logined to $RP_{j'}$,
+%     two accounts would be correlated by $RP_{j'}$.
+%This active attack appears not only in SSO systems, but also exists in all web applications.
+%Anyway,
+%    this attack can be prevented through various methods,
+% such as checking hidden iframes in the script
+%  and detecting the redirection by browser extensions.
+%
