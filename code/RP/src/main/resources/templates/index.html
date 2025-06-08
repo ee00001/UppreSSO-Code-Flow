@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<!--<script type="module" src="js/app.js"></script>-->
+<!--<script type="text/javascript" src="/js/RP.js"></script>-->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer">
+    <title>UPRESSO</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="container">
+    <div class="left-section">
+        <div class="left-content">
+            <div class="logo">UPRESSO</div>
+            <p>Untraceable and Unlinkable Privacy-PREserving Single Sign-On Services.</p>
+        </div>
+    </div>
+
+    <div class="right-section">
+        <div class="login-form">
+            <h2>Login to UPPRESSO</h2>
+
+            <form>
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" placeholder="Your email address">
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" placeholder="Your password">
+                </div>
+
+                <button type="submit" class="login-btn">Login</button>
+            </form>
+
+            <div class="divider">
+                <span>OR</span>
+            </div>
+
+            <div class="social-login">
+                <button class="social-btn" id="sso">
+                    <img src="pics/shield.png" alt="icon" style="width:18px;height:18px;">
+                    Continue with UPPRSSO
+                </button>
+            </div>
+
+            <div class="signup-link">
+                Don't have an account? <a href="#">Sign Up</a>
+            </div>
+        </div>
+    </div>
+</div>
+<script type="module">
+    import { onBTNClick } from './js/RP.js';
+    document.getElementById("sso").addEventListener("click", onBTNClick);
+</script>
+</body>
+</html>
+

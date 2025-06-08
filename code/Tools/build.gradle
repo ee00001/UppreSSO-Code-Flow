@@ -1,0 +1,18 @@
+plugins {
+    id("java")
+}
+
+group = "org.example"
+version = "1.0-SNAPSHOT"
+
+repositories {
+    maven { url 'https://maven.aliyun.com/repository/public' }
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'com.google.code.gson:gson:2.8.5'
+    implementation 'com.auth0:java-jwt:3.8.1'
+    implementation 'org.bouncycastle:bcprov-jdk15on:1.68'
+
+}
