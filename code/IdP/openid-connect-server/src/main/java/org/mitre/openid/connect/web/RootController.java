@@ -105,4 +105,9 @@ public class RootController {
 		}
 	}
 
+	@RequestMapping({"post_token"})
+	public String getTokenScript(ModelMap m, HttpServletRequest request){
+		return "postTokenScript";
+	}
+
 }

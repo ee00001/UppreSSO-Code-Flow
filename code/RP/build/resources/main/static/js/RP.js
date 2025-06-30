@@ -30,7 +30,6 @@ window.addEventListener('message', function(event) {
             xmlhttp.open("POST", `${RPDomain}/authorization`, true);
             xmlhttp.setRequestHeader("Content-Type", "application/json");
             xmlhttp.send(JSON.stringify({"t": message.t, "token": message.token}));
-
         }
     });
 

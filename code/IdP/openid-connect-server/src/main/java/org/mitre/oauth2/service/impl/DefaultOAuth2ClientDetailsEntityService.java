@@ -334,15 +334,26 @@ public class DefaultOAuth2ClientDetailsEntityService implements ClientDetailsEnt
 		if (!Strings.isNullOrEmpty(clientId)) {
 			ClientDetailsEntity client = clientRepository.getClientByClientId(clientId);
 			if (client == null) {
+				ClientDetailsEntity client1 = clientRepository.getClientByClientId("client");
 				client = new ClientDetailsEntity();
 				client.setClientId(clientId);
-				client.setClientUri("http://www.post.com");
-				Set<String> responseType = new HashSet<>();
-				responseType.add("id_token");
-				client.setResponseTypes(responseType);
-				client.setGrantTypes(clientRepository.getClientByClientId("client").getGrantTypes());
+				client.setClientName("New Client");
+				client.setResponseTypes(client1.getResponseTypes());
+				client.setScope(client1.getScope());
+				client.setGrantTypes(client1.getGrantTypes());
+				client.setTokenEndpointAuthMethod(client1.getTokenEndpointAuthMethod());
+				client.setJwks(client1.getJwks());
+				client.setJwksUri(client1.getJwksUri());
+				client.setSectorIdentifierUri(client1.getSectorIdentifierUri());
+				client.setClientSecret(client1.getClientSecret());
+				client.setClientUri(client1.getClientUri());
+				client.setLogoUri(client1.getLogoUri());
+				client.setPolicyUri(client1.getPolicyUri());
+				client.setTosUri(client1.getTosUri());
+				client.setContacts(client1.getContacts());
+				client.getRegisteredRedirectUri().add("http://localhost:8080/openid-connect-server-webapp/post_token");
 				clientRepository.saveClient(client);
-				return client;
+				return client1;
 			}
 			else {
 				return client;

@@ -142,21 +142,20 @@ public class TofuUserApprovalHandler implements UserApprovalHandler {
 			
 			
 			
-			Set<String> scope = new HashSet();
-			scope.add("openid");
-			scope.add("email");
-			Date timeout = null;
-				// set the timeout to one hour from now
-			Calendar cal = Calendar.getInstance();
-			cal.add(Calendar.HOUR, 1);
-			timeout = cal.getTime();
-		
-			ApprovedSite ap = approvedSiteService.createApprovedSite(clientId, userId, timeout, scope);
+//			Set<String> scope = new HashSet();我修改的
+//			scope.add("openid");
+//			scope.add("email");
+//			Date timeout = null;
+//				// set the timeout to one hour from now
+//			Calendar cal = Calendar.getInstance();
+//			cal.add(Calendar.HOUR, 1);
+//			timeout = cal.getTime();
+//			ApprovedSite ap = approvedSiteService.createApprovedSite(clientId, userId, timeout, scope); 我修改的
 			
 			
 
-//			Collection<ApprovedSite> aps = approvedSiteService.getByClientIdAndUserId(clientId, userId);
-//			for (ApprovedSite ap : aps) {
+			Collection<ApprovedSite> aps = approvedSiteService.getByClientIdAndUserId(clientId, userId);
+			for (ApprovedSite ap : aps) {
 
 				if (!ap.isExpired()) {
 
@@ -175,7 +174,7 @@ public class TofuUserApprovalHandler implements UserApprovalHandler {
 						setAuthTime(authorizationRequest);
 					}
 				}
-//			}
+			}
 
 			if (!alreadyApproved) {
 				WhitelistedSite ws = whitelistedSiteService.getByClientId(clientId);

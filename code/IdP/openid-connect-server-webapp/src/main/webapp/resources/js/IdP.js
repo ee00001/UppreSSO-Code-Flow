@@ -4,10 +4,12 @@ let IdPDomain = "http://localhost:8080/openid-connect-server-webapp";
 var ec = new EC('secp256k1');
 var pKeyHex = "04de679e99a22c3f3f5e43379654f03e615fb8f532a88e3bf90bd7d4abc84ef7938eae1c96e011fb6fa9fc1018ce46cf1c461d06769bfc746aaa69ce09f98b055d";
 let cert = getCert();
+sessionStorage.setItem("cert", cert);
 let certPayload;
 let t;
 
-checkAuthentication();
+//checkAuthentication();
+doAuthorize();
 
 
 function stringToBytes(str) {
@@ -40,17 +42,6 @@ function getCert (){
 				return null;
 			}
 			var msgHash = stringToBytes(header + "." + payload);
-
-//			var key = ec.genKeyPair();
-//			var signature = key.sign(msgHash);
-//			var derSign = signature.toDER();
-//			var pubPoint = key.getPublic();
-//			var pub = pubPoint.encode('hex');
-//			console.log("Public Key: " + pub);
-//			console.log("Signature: " + bytesToHexString(derSign));
-
-
-
 			var key = ec.keyFromPublic(pKeyHex, 'hex');
 			var verify = key.verify(msgHash, sig);
 			if (!verify){
@@ -81,75 +72,78 @@ function initXML(){
 	}
 }
 
-function checkAuthentication() {
-	$.ajax({
-		url : 'isAuthenticated',
-		// dataType : 'json',
-		complete : function(xhr){
-			if(xhr.status == 200 ){
-				let data = JSON.parse(xhr.responseText);
-				if (data.authenticated == "true") {
-					alert("You are already authenticated.");
-				} else {
-					document.getElementById("login").style = "";
-				}
-			}
-		},
-		success : function(result){
+//function checkAuthentication() {
+//	$.ajax({
+//		url : 'isAuthenticated',
+//		// dataType : 'json',
+//		complete : function(xhr){
+//			if(xhr.status == 200 ){
+//				let data = JSON.parse(xhr.responseText);
+//				if (data.authenticated == "true") {
+//					alert("You are already authenticated.");
+//				} else {
+//					document.getElementById("login").style = "";
+//				}
+//			}
+//		},
+//		success : function(result){
+//
+//		}
+//
+//	});
+//}
 
-		}
-
-	});
-}
-
-function logFuc(){
-	let username = document.getElementById("username").value;
-	let password = document.getElementById("password").value;
-	let _csrf = document.getElementById("_csrf").value;
-	let registrationUrl = IdPDomain + "/login"
-	let xmlhttp = initXML()
-	xmlhttp.onreadystatechange = function () {
-		if (xmlhttp.readyState == 3 && xmlhttp.status == 200) {
-			let redirection = xmlhttp.responseURL
-			if (redirection.endsWith("failure")){
-				alert("Login failed. Please check your username and password.");
-			}else {
-				doAuthorize()
-			}
-		} else {
-			if (xmlhttp.readyState == 4 && xmlhttp.status != 200) {
-				alert("An error occurred during login. Please try again.");
-			}
-		}
-	}
-	let body = "username=" + username + "&password=" + password + "&_csrf="+ _csrf + "&submit=Login"
-	xmlhttp.open("POST", registrationUrl, true);
-	xmlhttp.setRequestHeader("Upgrade-Insecure-Requests", "1")
-	xmlhttp.setRequestHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9")
-	xmlhttp.setRequestHeader("Cache-Control", "max-age=0")
-	xmlhttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded")
-	xmlhttp.send(body);
-}
+//function logFuc(){
+//	let username = document.getElementById("username").value;
+//	let password = document.getElementById("password").value;
+//	let _csrf = document.getElementById("_csrf").value;
+//	let registrationUrl = IdPDomain + "/login"
+//	let xmlhttp = initXML()
+//	xmlhttp.onreadystatechange = function () {
+//		if (xmlhttp.readyState == 3 && xmlhttp.status == 200) {
+//			let redirection = xmlhttp.responseURL
+//			if (redirection.endsWith("failure")){
+//				alert("Login failed. Please check your username and password.");
+//			}else {
+//				doAuthorize()
+//			}
+//		} else {
+//			if (xmlhttp.readyState == 4 && xmlhttp.status != 200) {
+//				alert("An error occurred during login. Please try again.");
+//			}
+//		}
+//	}
+//	let body = "username=" + username + "&password=" + password + "&_csrf="+ _csrf + "&submit=Login"
+//	xmlhttp.open("POST", registrationUrl, true);
+//	xmlhttp.setRequestHeader("Upgrade-Insecure-Requests", "1")
+//	xmlhttp.setRequestHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9")
+//	xmlhttp.setRequestHeader("Cache-Control", "max-age=0")
+//	xmlhttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded")
+//	xmlhttp.send(body);
+//}
 
 function doAuthorize() {
 	let PID = generatePID();
-	$.ajax({
-		url : 'authorize?client_id=' + PID + '&redirect_uri=http://www.post.com&response_type=token&scope=openid%20email',
-		// dataType : 'json',
-		complete : function(xhr){
-			if((xhr.status >= 300 && xhr.status < 400) && xhr.status != 304){
-				//重定向网址在响应头中，取出再执行跳转
-				let redirectUrl = xhr.getResponseHeader('X-Redirect');
-				location.href = redirectUrl;
-			}
-		},
-		success : function(result){
-			let origin = certPayload.redirect_uri;
-			let message = {"t": t, "token": result}
-			window.opener.postMessage(JSON.stringify(message), origin)
-		}
-
-	});
+	let redirect_uri = IdPDomain + '/post_token'
+	let auth_uri = IdPDomain + '/authorize?client_id=' + PID + '&redirect_uri=' + redirect_uri + '&response_type=token&scope=openid%20email';
+	location.href = auth_uri;
+//	$.ajax({
+//		url : 'authorize?client_id=' + PID + '&redirect_uri='+redirect_uri+'&response_type=token&scope=openid%20email',
+//		// dataType : 'json',
+//		complete : function(xhr){
+//			if((xhr.status >= 300 && xhr.status < 400) && xhr.status != 304){
+//				//重定向网址在响应头中，取出再执行跳转
+//				let redirectUrl = xhr.getResponseHeader('X-Redirect');
+//				location.href = redirectUrl;
+//			}
+//		},
+//		success : function(result){
+//			let origin = certPayload.redirect_uri;
+//			let message = {"t": t, "token": result}
+//			window.opener.postMessage(JSON.stringify(message), origin)
+//		}
+//
+//	});
 }
 
 function base64urlDecode(str) {
@@ -161,6 +155,8 @@ function base64urlDecode(str) {
 function generatePID() {
 	var key = ec.genKeyPair();
 	t = key.getPrivate().toString();
+
+	sessionStorage.setItem("t", t);
 
 	let CertTup = cert.split('.');
 	let payload = base64urlDecode(CertTup[1]);

@@ -255,17 +255,17 @@ public class AuthorizationEndpoint extends AbstractEndpoint {
 			if (accessToken == null) {
 				throw new UnsupportedResponseTypeException("Unsupported response type: token");
 			}
-			ModelAndView mv = new ModelAndView();
-			Map<String, Object> additionalInformation = accessToken.getAdditionalInformation();
-			for (String key : additionalInformation.keySet()) {
-				Object value = additionalInformation.get(key);
-				if (value != null) {
-					if(key.equals("id_token")){
-						mv.addObject("token", value);
-						return mv;
-					}
-				}
-			}
+//			ModelAndView mv = new ModelAndView();
+//			Map<String, Object> additionalInformation = accessToken.getAdditionalInformation();
+//			for (String key : additionalInformation.keySet()) {
+//				Object value = additionalInformation.get(key);
+//				if (value != null) {
+//					if(key.equals("id_token")){
+//						mv.addObject("token", value);
+//						return mv;
+//					}
+//				}
+//			}
 
 			return new ModelAndView(new RedirectView(appendAccessToken(authorizationRequest, accessToken), false, true,
 					false));
