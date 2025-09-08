@@ -43,7 +43,12 @@
             <div class="social-login">
                 <button class="social-btn" id="sso">
                     <img src="pics/shield.png" alt="icon" style="width:18px;height:18px;">
-                    Continue with UPPRSSO
+                    Continue with UPPRSSO (Implict Flow)
+                </button>
+
+                <button class="social-btn" id="sso-code" style="margin-top:10px;">
+                    <img src="pics/shield.png" alt="icon" style="width:18px;height:18px;">
+                    Continue with UPPRSSO (Code Flow)
                 </button>
             </div>
 
@@ -54,8 +59,11 @@
     </div>
 </div>
 <script type="module">
-    import { onBTNClick } from './js/RP.js';
+    import { onBTNClick, onBTNClickCode } from './js/RP.js';
+
     document.getElementById("sso").addEventListener("click", onBTNClick);
+
+    document.getElementById("sso-code").addEventListener("click", onBTNClickCode);
 </script>
 </body>
 </html>

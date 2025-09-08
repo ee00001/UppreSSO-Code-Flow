@@ -48,6 +48,7 @@
 		<property name="showSql" value="true" />
 	</bean>
 
+
 	<!--  The following is for connecting to a MySQL database that has been initialized with 
 			src/main/resources/db/mysql/mysql_database_tables.sql -->
 <!-- 	<bean id="dataSource" class="com.zaxxer.hikari.HikariDataSource" destroy-method="close"> -->

@@ -109,10 +109,8 @@ public class AuthorizationRequestFilter extends GenericFilterBean {
 
 		// skip everything that's not an authorize URL
 		if (!requestMatcher.matches(request)) {
-			
-			
+
 			chain.doFilter(req, res);
-			
 			return;
 		}
 
@@ -125,6 +123,7 @@ public class AuthorizationRequestFilter extends GenericFilterBean {
 			authRequest = authRequestFactory.createAuthorizationRequest(createRequestMap(request.getParameterMap()));
 			
 			logger.info("this is test for clientID" + authRequest.getClientId());
+
 			
 			if (!Strings.isNullOrEmpty(authRequest.getClientId())) {
 				client = clientService.loadClientByClientId(authRequest.getClientId());
@@ -170,7 +169,6 @@ public class AuthorizationRequestFilter extends GenericFilterBean {
 						// user hasn't been logged in, we need to "return an error"
 						if (client != null && authRequest.getRedirectUri() != null) {
 							
-							
 
 							// if we've got a redirect URI then we'll send it
 
@@ -195,7 +193,6 @@ public class AuthorizationRequestFilter extends GenericFilterBean {
 								return;
 							}
 						}
-
 						
 						
 						response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied");

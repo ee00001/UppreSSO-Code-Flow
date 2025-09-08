@@ -27,7 +27,8 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 		// @formatter:off
     	    http.authorizeRequests()
                 .antMatchers("/sparklr/**","/facebook/**").hasRole("USER")
-                .anyRequest().permitAll()
+				.antMatchers("/code4token").permitAll()
+				.anyRequest().permitAll()
                 .and()
             .logout()
                 .logoutSuccessUrl("/login.jsp")
@@ -37,7 +38,10 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
             	.loginProcessingUrl("/login")
                 .loginPage("/login.jsp")
                 .failureUrl("/login.jsp?authentication_error=true")
-                .permitAll();
+                .permitAll()
+			.and()
+			.csrf()
+				.ignoringAntMatchers("/code4token");
     	// @formatter:on
 	}
 

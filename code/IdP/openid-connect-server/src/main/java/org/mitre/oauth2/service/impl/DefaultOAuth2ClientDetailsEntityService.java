@@ -352,6 +352,7 @@ public class DefaultOAuth2ClientDetailsEntityService implements ClientDetailsEnt
 				client.setTosUri(client1.getTosUri());
 				client.setContacts(client1.getContacts());
 				client.getRegisteredRedirectUri().add("http://localhost:8080/openid-connect-server-webapp/post_token");
+				client.getRegisteredRedirectUri().add("http://localhost:8080/openid-connect-server-webapp/post_code");
 				clientRepository.saveClient(client);
 				return client1;
 			}

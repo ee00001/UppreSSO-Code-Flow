@@ -13,6 +13,7 @@
 package org.springframework.security.oauth2.provider.client;
 
 import java.io.IOException;
+import java.nio.charset.Charset;
 
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
@@ -93,6 +94,9 @@ public class ClientCredentialsTokenEndpointFilter extends AbstractAuthentication
 	@Override
 	public Authentication attemptAuthentication(HttpServletRequest request, HttpServletResponse response)
 			throws AuthenticationException, IOException, ServletException {
+
+		System.out.println("URL  参数: " + request.getQueryString());
+		System.out.println("表单体   : " + org.springframework.util.StreamUtils.copyToString(request.getInputStream(), Charset.forName("UTF-8")));
 
 		if (allowOnlyPost && !"POST".equalsIgnoreCase(request.getMethod())) {
 			throw new HttpRequestMethodNotSupportedException(request.getMethod(), new String[] { "POST" });

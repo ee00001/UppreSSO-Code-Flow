@@ -110,4 +110,8 @@ public class RootController {
 		return "postTokenScript";
 	}
 
+	@RequestMapping({"post_code"})
+	public String getCodeScript(ModelMap m, HttpServletRequest request){
+		return "postCodeScript";
+	}
 }

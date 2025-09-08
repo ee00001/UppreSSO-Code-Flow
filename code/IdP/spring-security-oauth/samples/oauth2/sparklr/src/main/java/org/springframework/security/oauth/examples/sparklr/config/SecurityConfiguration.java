@@ -38,6 +38,7 @@ public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
                  http
             .authorizeRequests()
                 .antMatchers("/login.jsp").permitAll()
+				 .antMatchers("/code4token").permitAll()
                 .anyRequest().hasRole("USER")
                 .and()
             .exceptionHandling()
@@ -46,6 +47,7 @@ public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
             // TODO: put CSRF protection back into this endpoint
             .csrf()
                 .requireCsrfProtectionMatcher(new AntPathRequestMatcher("/oauth/authorize"))
+				 .ignoringAntMatchers("/code4token")
                 .disable()
             .logout()
             	.logoutUrl("/logout")

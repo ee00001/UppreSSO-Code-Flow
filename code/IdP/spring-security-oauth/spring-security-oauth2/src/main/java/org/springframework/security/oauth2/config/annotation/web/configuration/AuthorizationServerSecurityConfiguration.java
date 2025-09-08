@@ -32,6 +32,7 @@ import org.springframework.security.oauth2.provider.endpoint.FrameworkEndpointHa
 
 import java.util.Collections;
 import java.util.List;
+import javax.servlet.Filter;
 
 /**
  * @author Rob Winch
@@ -83,10 +84,13 @@ public class AuthorizationServerSecurityConfiguration extends WebSecurityConfigu
 			UserDetailsService userDetailsService = http.getSharedObject(UserDetailsService.class);
 			endpoints.getEndpointsConfigurer().userDetailsService(userDetailsService);
 		}
+
+
 		// @formatter:off
 		http
         	.authorizeRequests()
             	.antMatchers(tokenEndpointPath).fullyAuthenticated()
+//				.antMatchers(tokenEndpointPath).permitAll() // 允许匿名访问
             	.antMatchers(tokenKeyPath).access(configurer.getTokenKeyAccess())
             	.antMatchers(checkTokenPath).access(configurer.getCheckTokenAccess())
         .and()
@@ -99,9 +103,12 @@ public class AuthorizationServerSecurityConfiguration extends WebSecurityConfigu
 	}
 
 	protected void configure(AuthorizationServerSecurityConfigurer oauthServer) throws Exception {
-		for (AuthorizationServerConfigurer configurer : configurers) {
-			configurer.configure(oauthServer);
-		}
-	}
+		oauthServer
+			.allowFormAuthenticationForClients()   // 允许表单 client_id/client_secret
+			.checkTokenAccess("permitAll()")
+			.tokenKeyAccess("permitAll()");
 
+		// 彻底关掉 /token 的 Basic 认证
+		oauthServer.tokenEndpointAuthenticationFilters(Collections.<Filter>emptyList());
+	}
 }

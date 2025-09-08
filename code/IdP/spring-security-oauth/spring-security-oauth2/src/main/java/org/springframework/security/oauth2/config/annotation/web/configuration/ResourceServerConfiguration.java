@@ -115,6 +115,9 @@ public class ResourceServerConfiguration extends WebSecurityConfigurerAdapter im
 
 	@Override
 	protected void configure(HttpSecurity http) throws Exception {
+		http
+			.csrf().disable();
+
 		ResourceServerSecurityConfigurer resources = new ResourceServerSecurityConfigurer();
 		ResourceServerTokenServices services = resolveTokenServices();
 		if (services != null) {
@@ -142,7 +145,8 @@ public class ResourceServerConfiguration extends WebSecurityConfigurerAdapter im
 				.accessDeniedHandler(resources.getAccessDeniedHandler()).and()
 				.sessionManagement()
 				.sessionCreationPolicy(SessionCreationPolicy.STATELESS).and()
-				.csrf().disable();
+				.csrf()
+					.disable();
 		// @formatter:on
 		http.apply(resources);
 		if (endpoints != null) {

@@ -8,7 +8,7 @@ import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.auth0.jwt.interfaces.JWTVerifier;
 import com.google.gson.Gson;
-import javax.servlet.http.HttpServletRequest;
+
 import java.math.BigInteger;
 import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
@@ -22,13 +22,9 @@ public class Recluse {
     String n = "qt6yOiI_wCoCVlGO0MySsez0VkSqhPvDl3rfabOslx35mYEO-n4ABfIT5Gn2zN-CeIcOZ5ugAXvIIRWv5H55-tzjFazi5IKkOIMCiz5__MtsdxKCqGlZu2zt-BLpqTOAPiflNPpM3RUAlxKAhnYEqNha6-allPnFQupnW_eTYoyuzuedT7dSp90ry0ZcQDimntXWeaSbrYKCj9Rr9W1jn2uTowUuXaScKXTCjAmJVnsD75JNzQfa8DweklTyWQF-Y5Ky039I0VIu-0CIGhXY48GAFe2EFb8VpNhf07DP63p138RWQ1d3KPEM9mYJVpQC68j3wzDQYSljpLf9by7TGw";
     RecluseToken recluseToken;
     String t;
-    String tokenStr = "";
 
-    public void receiveToken(HttpServletRequest request, String body) {
-        Gson gson = new Gson();
-        JsonObject jsonObj = gson.fromJson(body, JsonObject.class);
-        t = jsonObj.get("t").getAsString();
-        tokenStr = jsonObj.get("token").getAsString();
+    public void receiveToken(String tokenStr, String t) {
+        this.t = t;
         DecodedJWT token = decodeToken(tokenStr);
         recluseToken = new RecluseToken();
         if(token != null) {

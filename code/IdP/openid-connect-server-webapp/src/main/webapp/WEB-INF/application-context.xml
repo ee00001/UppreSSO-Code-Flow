@@ -111,13 +111,14 @@
 		use-expressions="true">
 		
 		<security:intercept-url pattern="/token" access="permitAll" method="OPTIONS" /> <!-- allow OPTIONS calls without auth for CORS stuff -->
-		<security:intercept-url pattern="/token" access="isAuthenticated()" />
-		<security:http-basic entry-point-ref="oauthAuthenticationEntryPoint" />
+		<security:intercept-url pattern="/token" access="permitAll" />
+<!--		<security:intercept-url pattern="/token" access="isAuthenticated()" />-->
+<!--		<security:http-basic entry-point-ref="oauthAuthenticationEntryPoint" />-->
 		<!-- include this only if you need to authenticate clients via request parameters -->
-		<security:custom-filter ref="clientAssertionEndpointFilter" after="PRE_AUTH_FILTER" /> <!-- this one has to go first -->
-		<security:custom-filter ref="clientCredentialsEndpointFilter" after="BASIC_AUTH_FILTER" />
+<!--		<security:custom-filter ref="clientAssertionEndpointFilter" after="PRE_AUTH_FILTER" /> &lt;!&ndash; this one has to go first &ndash;&gt;-->
+<!--		<security:custom-filter ref="clientCredentialsEndpointFilter" after="BASIC_AUTH_FILTER" />-->
 		<security:custom-filter ref="corsFilter" after="SECURITY_CONTEXT_FILTER" />
-		<security:access-denied-handler ref="oauthAccessDeniedHandler" />
+<!--		<security:access-denied-handler ref="oauthAccessDeniedHandler" />-->
 		<security:csrf disabled="true"/>
 	</security:http>
 
@@ -138,6 +139,16 @@
 		<security:intercept-url pattern="/resources/**" access="permitAll"/>
 		<security:custom-filter ref="corsFilter" after="SECURITY_CONTEXT_FILTER" />
 		<security:csrf disabled="true"/>
+	</security:http>
+
+	<!-- Disable CSRF for /code4token -->
+	<security:http pattern="/code4token"
+				   use-expressions="true"
+				   create-session="stateless"
+				   entry-point-ref="http403EntryPoint">
+		<security:intercept-url pattern="/code4token" access="permitAll"/>
+		<security:csrf disabled="true"/>
+		<security:custom-filter ref="corsFilter" after="SECURITY_CONTEXT_FILTER" />
 	</security:http>
 	
 	<!-- OAuth-protect API and other endpoints -->

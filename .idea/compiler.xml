@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <module name="openid-connect-common" />
+        <module name="spring-security-oauth" />
+        <module name="spring-security-oauth2" />
+        <module name="openid-connect-server" />
+        <module name="openid-connect-client" />
+        <module name="openid-connect-server-webapp" />
+      </profile>
+    </annotationProcessing>
+  </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="modified" options="-parameters" />
+      <module name="modified.main" options="-parameters" />
+      <module name="modified.test" options="-parameters" />
+    </option>
+  </component>
+</project>

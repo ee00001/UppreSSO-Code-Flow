@@ -16,7 +16,11 @@
 		<jackson1.version>1.9.13</jackson1.version>
 		<jackson2.version>2.3.2</jackson2.version>
 		<spring.security.jwt.version>1.0.2.RELEASE</spring.security.jwt.version>
+		<maven.compiler.source>1.8</maven.compiler.source>
+		<maven.compiler.target>1.8</maven.compiler.target>
+		<maven.compiler.encoding>UTF-8</maven.compiler.encoding>
 	</properties>
+
 
 	<build>
 		<plugins>
@@ -51,10 +55,19 @@
 					</execution>
 				</executions>
 			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<configuration>
+					<source>7</source>
+					<target>7</target>
+				</configuration>
+			</plugin>
 		</plugins>
 	</build>
 
 	<dependencies>
+
 		<dependency>
 			<groupId>javax.servlet</groupId>
 			<artifactId>javax.servlet-api</artifactId>
@@ -207,12 +220,6 @@
 			<scope>test</scope>
 		</dependency>
 
-		<dependency>
-			<groupId>org.slf4j</groupId>
-			<artifactId>slf4j-api</artifactId>
-			<version>1.7.6</version>
-			<scope>test</scope>
-		</dependency>
 
 		<dependency>
 			<groupId>org.hsqldb</groupId>

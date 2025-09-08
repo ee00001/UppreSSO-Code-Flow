@@ -46,7 +46,7 @@ import org.springframework.security.oauth2.provider.token.store.InMemoryTokenSto
 
 /**
  * @author Rob Winch
- * 
+ *
  */
 @Configuration
 public class OAuth2ServerConfig {
@@ -66,17 +66,17 @@ public class OAuth2ServerConfig {
 		public void configure(HttpSecurity http) throws Exception {
 			// @formatter:off
 			http
-				// Since we want the protected resources to be accessible in the UI as well we need 
+				// Since we want the protected resources to be accessible in the UI as well we need
 				// session creation to be allowed (it's disabled by default in 2.0.6)
 				.sessionManagement().sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
 			.and()
 				.requestMatchers().antMatchers("/photos/**", "/oauth/users/**", "/oauth/clients/**","/me")
 			.and()
 				.authorizeRequests()
-					.antMatchers("/me").access("#oauth2.hasScope('read')")					
-					.antMatchers("/photos").access("#oauth2.hasScope('read') or (!#oauth2.isOAuth() and hasRole('ROLE_USER'))")                                        
+					.antMatchers("/me").access("#oauth2.hasScope('read')")
+					.antMatchers("/photos").access("#oauth2.hasScope('read') or (!#oauth2.isOAuth() and hasRole('ROLE_USER'))")
 					.antMatchers("/photos/trusted/**").access("#oauth2.hasScope('trust')")
-					.antMatchers("/photos/user/**").access("#oauth2.hasScope('trust')")					
+					.antMatchers("/photos/user/**").access("#oauth2.hasScope('trust')")
 					.antMatchers("/photos/**").access("#oauth2.hasScope('read') or (!#oauth2.isOAuth() and hasRole('ROLE_USER'))")
 					.regexMatchers(HttpMethod.DELETE, "/oauth/users/([^/].*?)/tokens/.*")
 						.access("#oauth2.clientHasRole('ROLE_CLIENT') and (hasRole('ROLE_USER') or #oauth2.isClient()) and #oauth2.hasScope('write')")
@@ -105,6 +105,15 @@ public class OAuth2ServerConfig {
 
 		@Value("${tonr.redirect:http://localhost:8080/tonr2/sparklr/redirect}")
 		private String tonrRedirectUri;
+
+		/* ---------- 收集所有 TokenGranter ---------- */
+		@Autowired(required = false)
+		private List<TokenGranter> granters;
+
+		@Bean
+		public TokenGranter tokenGranter() {
+			return new CompositeTokenGranter(granters == null ? Collections.emptyList() : granters);
+		}
 
 		@Override
 		public void configure(ClientDetailsServiceConfigurer clients) throws Exception {
@@ -153,7 +162,15 @@ public class OAuth2ServerConfig {
 		                .authorizedGrantTypes("implicit")
 		                .authorities("ROLE_CLIENT")
 		                .scopes("read", "write", "trust")
-		                .autoApprove(true);
+		                .autoApprove(true)
+					//匿名客户端
+					.and()
+					.withClient("anonymous")
+					.secret("public")
+					.authorizedGrantTypes("authorization_code")
+					.scopes("openid", "email")
+					.autoApprove(true)
+					;
 			// @formatter:on
 		}
 
@@ -162,17 +179,43 @@ public class OAuth2ServerConfig {
 			return new InMemoryTokenStore();
 		}
 
+		@Bean
+		public AuthenticationManager privacyAuthManager() {
+			return authentication -> {
+				HttpServletRequest request =
+					((org.springframework.web.context.request.ServletRequestAttributes)
+						org.springframework.web.context.request.RequestContextHolder.currentRequestAttributes())
+						.getRequest();
+				// 仅授权码流跳过 client-secret 校验
+				if ("authorization_code".equals(request.getParameter("grant_type"))) {
+					return new UsernamePasswordAuthenticationToken(
+						authentication.getPrincipal(),
+						authentication.getCredentials(),
+						Collections.emptyList());
+				}
+				// 其余 grant_type 走默认 ProviderManager
+				return null;
+			};
+		}
+
 		@Override
 		public void configure(AuthorizationServerEndpointsConfigurer endpoints) throws Exception {
-			endpoints.tokenStore(tokenStore).userApprovalHandler(userApprovalHandler)
-					.authenticationManager(authenticationManager);
+			endpoints
+					.tokenStore(tokenStore)
+					.userApprovalHandler(userApprovalHandler)
+					.authenticationManager(authenticationManager)
+					.tokenGranter(tokenGranter());
+//					.authenticationManager(privacyAuthManager());//新增
 		}
 
 		@Override
 		public void configure(AuthorizationServerSecurityConfigurer oauthServer) throws Exception {
 			oauthServer.realm("sparklr2/client");
+			oauthServer
+					.tokenEndpointAuthenticationFilters(Collections.emptyList())
+			oauthServer.allowFormAuthenticationForClients();
+			oauthServer.passwordEncoder(NoOpPasswordEncoder.getInstance());
 		}
-
 	}
 
 	protected static class Stuff {

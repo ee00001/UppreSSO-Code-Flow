@@ -13,26 +13,86 @@
 
 package org.springframework.security.oauth2.config.annotation.web.configuration;
 
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.password.NoOpPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.config.annotation.configurers.ClientDetailsServiceConfigurer;
 import org.springframework.security.oauth2.config.annotation.web.configurers.AuthorizationServerEndpointsConfigurer;
 import org.springframework.security.oauth2.config.annotation.web.configurers.AuthorizationServerSecurityConfigurer;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
+
+
+import javax.servlet.Filter;
+import javax.servlet.http.HttpServletRequest;
+import java.util.Collections;
+
 
 /**
  * @author Dave Syer
  *
  */
+@Configuration
+@EnableAuthorizationServer
 public class AuthorizationServerConfigurerAdapter implements AuthorizationServerConfigurer {
+
+
+	/* ---------- 1. 匿名客户端 ---------- */
+	@Override
+	public void configure(ClientDetailsServiceConfigurer clients) throws Exception {
+		clients.inMemory()
+			.withClient("anonymous")
+			.secret("public")
+			.authorizedGrantTypes("authorization_code")
+			.scopes("openid", "email")
+			.autoApprove(true)
+			.redirectUris("http://localhost:8080/rp/callback");
+	}
+
+
+
 
 	@Override
 	public void configure(AuthorizationServerSecurityConfigurer security) throws Exception {
+		security.tokenEndpointAuthenticationFilters(Collections.<Filter>emptyList());
+
+		security.allowFormAuthenticationForClients();
+
+		security.checkTokenAccess("permitAll()")
+			.tokenKeyAccess("permitAll()")
+			.passwordEncoder(NoOpPasswordEncoder.getInstance());
 	}
 
-	@Override
-	public void configure(ClientDetailsServiceConfigurer clients) throws Exception {
+	@Bean
+	public AuthenticationManager privacyAuthManager() {
+		return new AuthenticationManager() {
+			@Override
+			public Authentication authenticate(Authentication authentication)
+				throws org.springframework.security.core.AuthenticationException {
+				HttpServletRequest request =
+					((org.springframework.web.context.request.ServletRequestAttributes)
+						org.springframework.web.context.request.RequestContextHolder
+							.getRequestAttributes())
+						.getRequest();
+
+				if ("authorization_code".equals(request.getParameter("grant_type"))) {
+					return new UsernamePasswordAuthenticationToken(
+						authentication.getPrincipal(),
+						authentication.getCredentials(),
+						Collections.<org.springframework.security.core.GrantedAuthority>emptyList());
+				}
+				return null;
+			}
+		};
 	}
+
 
 	@Override
 	public void configure(AuthorizationServerEndpointsConfigurer endpoints) throws Exception {
+		endpoints.authenticationManager(privacyAuthManager());
 	}
-
 }
