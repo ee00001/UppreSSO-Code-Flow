@@ -6,6 +6,9 @@ var pKeyHex = "04de679e99a22c3f3f5e43379654f03e615fb8f532a88e3bf90bd7d4abc84ef79
 
 let USE_CODE_FLOW = false;
 let state = null;
+let challenge = null;
+
+const PKCE_challenge_supported = ['S256'];
 
 let cert = getCert();
 if(cert){
@@ -33,11 +36,27 @@ if (window.location.pathname.includes('/post_token') ||
 	if (flow === 'code') {
 		USE_CODE_FLOW = true;
 		state = params.get('state');
+		challenge = params.get('code_challenge');
+		method = params.get('code_challenge_method');
+
 		if (!state) {
 			alert('授权码模式缺少 state');
 			throw new Error('Missing state');
 		}
-		sessionStorage.setItem('oauth_state', state);
+		if(!challenge) {
+			alert('授权码模式缺少 pkce challenge');
+			throw new Error('Missing pkce challenge');
+		}
+		if(!method) {
+			alert('PKCE：缺少 pkce_challenge_method');
+			throw new Error('Missing pkce_challenge_method');
+		}
+		if(!PKCE_challenge_supported.includes(method)) {
+			alert(`PKCE：不支持的 challenge_method → ${method}`);
+			throw new Error('Unsupported pkce_challenge_method: ' + method);
+		}
+		sessionStorage.setItem('code_challenge', challenge);
+		sessionStorage.setItem('code_challenge_method', method);
 	}
 
 	doAuthorize();
@@ -50,8 +69,6 @@ function stringToBytes(str) {
   }
   return bytes;
 }
-
-
 
 function bytesToHexString(bytes) {
 	return Array.from(bytes).map(function(byte) {
@@ -129,12 +146,6 @@ function getCert() {
 
 	const { r, s } = derToRs128(sigDer);
 
-	// console.log('Decoded header:', base64urlDecode(header));
-	// console.log('Decoded payload:', base64urlDecode(payload));
-	// console.log('Decoded signature:', base64urlDecode(sigDer));
-	// console.log('r value:', bytesToHexString(r));
-	// console.log('s value:', bytesToHexString(s));
-
 	const msgHash = stringToBytes(header + '.' + payload);
 	const key = ec.keyFromPublic(pKeyHex, 'hex');
 	if (!key.verify(msgHash, { r, s })) {
@@ -192,13 +203,15 @@ function doAuthorize() {
 	const base = IdPDomain
 
 	if(USE_CODE_FLOW){
-		//授权码流,修改为302重定向，端点需要对应修改
+		//授权码流,带 challenge & method
 		const codeUrl = `${base}/authorize?` +
 			`client_id=${PID}&` +
 			`redirect_uri=${encodeURIComponent(IdPDomain + '/post_code')}&` +
 			`response_type=code&` +
 			`scope=openid%20email&` +
-			`state=${state}`;
+			`state=${state}`+
+			`&code_challenge=${encodeURIComponent(challenge)}` +
+			`&code_challenge_method=${method}`;
 
 		location.href = codeUrl;
 	}else{

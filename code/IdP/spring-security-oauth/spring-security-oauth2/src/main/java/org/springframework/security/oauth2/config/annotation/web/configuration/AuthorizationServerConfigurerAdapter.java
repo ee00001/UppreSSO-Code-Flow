@@ -13,6 +13,7 @@
 
 package org.springframework.security.oauth2.config.annotation.web.configuration;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -25,6 +26,9 @@ import org.springframework.security.oauth2.config.annotation.web.configurers.Aut
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.oauth2.provider.ClientDetailsService;
+import org.springframework.security.oauth2.provider.OAuth2RequestFactory;
+import org.springframework.security.oauth2.provider.endpoint.PkceAwareOAuth2RequestFactory;
 
 
 import javax.servlet.Filter;
@@ -40,8 +44,15 @@ import java.util.Collections;
 @EnableAuthorizationServer
 public class AuthorizationServerConfigurerAdapter implements AuthorizationServerConfigurer {
 
+	@Autowired
+	private ClientDetailsService clientDetailsService;
 
-	/* ---------- 1. 匿名客户端 ---------- */
+	@Bean
+	public OAuth2RequestFactory pkceRequestFactory() {
+		return new PkceAwareOAuth2RequestFactory(clientDetailsService);
+	}
+
+	//匿名客户端
 	@Override
 	public void configure(ClientDetailsServiceConfigurer clients) throws Exception {
 		clients.inMemory()
@@ -49,11 +60,8 @@ public class AuthorizationServerConfigurerAdapter implements AuthorizationServer
 			.secret("public")
 			.authorizedGrantTypes("authorization_code")
 			.scopes("openid", "email")
-			.autoApprove(true)
-			.redirectUris("http://localhost:8080/rp/callback");
+			.autoApprove(true);
 	}
-
-
 
 
 	@Override
@@ -93,6 +101,8 @@ public class AuthorizationServerConfigurerAdapter implements AuthorizationServer
 
 	@Override
 	public void configure(AuthorizationServerEndpointsConfigurer endpoints) throws Exception {
-		endpoints.authenticationManager(privacyAuthManager());
+		endpoints
+			.authenticationManager(privacyAuthManager())
+			.requestFactory(pkceRequestFactory());
 	}
 }

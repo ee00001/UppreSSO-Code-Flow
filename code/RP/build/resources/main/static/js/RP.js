@@ -55,7 +55,7 @@ function initXML(){
 
 //隐式流入口
 export async function onBTNClick() {
-    const t = await fetch(`${RPDomain}/getT`, { credentials: 'include' }).then(r => r.text());
+    const t = await fetch(`${RPDomain}/getT?flow=implicit`, { credentials: 'include' }).then(r => r.text());
 
     const ImplicitFlowUrl = `${IdPDomain}/openid-connect-server-webapp/script` +
         `#cert=${encodeURIComponent(cert)}` +
@@ -67,7 +67,8 @@ export async function onBTNClick() {
 
 //授权码流入口
 export async function onBTNClickCode(){
-    const t = await fetch(`${RPDomain}/getT`, { credentials: 'include' }).then(r => r.text());
+    const {t, challenge, method} = await fetch(`${RPDomain}/getT?flow=code`, { credentials: 'include' }).then(r => r.json());
+
     const state = generateState();
     sessionStorage.setItem('oauth_state', state);
 
@@ -75,7 +76,9 @@ export async function onBTNClickCode(){
         `#cert=${encodeURIComponent(cert)}` +
         `&t=${encodeURIComponent(t)}` +
         `&flow=code` +
-        `&state=${state}`;
+        `&state=${state}` +
+        `&code_challenge=${encodeURIComponent(challenge)}` +
+        `&code_challenge_method=${method}`;
 
     location.href = CodeFlowUrl;
 }

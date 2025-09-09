@@ -17,7 +17,7 @@ public class AuthorizationCodeExchange {
     }
 
     public static Map<String, String> exchangeCodeForToken(
-            String code, String idpDomain) {
+            String code, String idpDomain, String verifier) {
         RestTemplate client = connectToIdP(idpDomain);
 
         String tokenEndpoint = idpDomain + "/openid-connect-server-webapp" + "/code4token";
@@ -29,6 +29,8 @@ public class AuthorizationCodeExchange {
         form.add("code", code);
         form.add("client_id", "anonymous");
         form.add("client_secret", "public");
+        //PKCE verifier
+        form.add("code_verifier", verifier);
 
         //签名逻辑，暂时未签名，直接放行
         String formString = form.toString(); // 或自定义序列化

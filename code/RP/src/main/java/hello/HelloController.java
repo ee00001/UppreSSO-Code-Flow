@@ -1,12 +1,14 @@
 package hello;
 import com.google.gson.Gson;
 import org.springframework.boot.web.servlet.server.Session;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ConcurrentModel;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import sdk.Bean.UserInfo;
 import sdk.Bean.UserManager;
+import sdk.PkceUtil;
 import sdk.Recluse;
 import sdk.RecluseToken;
 import sdk.AuthorizationCodeExchange;
@@ -18,6 +20,7 @@ import javax.servlet.http.HttpSession;
 
 
 //新增依赖
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -37,6 +40,8 @@ import com.google.gson.JsonObject;
 @Controller
 public class HelloController {
     Recluse recluse = new Recluse();
+    private static final String SESSION_VERIFIER_KEY = "pkce_verifier";
+
     @RequestMapping("/")
     public String index(Model model) {
         System.out.println("/index");
@@ -48,11 +53,13 @@ public class HelloController {
         Security.addProvider(new BouncyCastleProvider());
     }
 
-    //新增：t由RP在会话中生成，而不是由用户的IdP脚本生成
     private static final Map<String, String> tStore = new ConcurrentHashMap<>();
-    @RequestMapping(value = "/getT", method = RequestMethod.GET)
+
+    //新增：t由RP在会话中生成，而不是由用户的IdP脚本生成
+    //再新增：同时生成 PKCE verifier 和 challenge
+    @RequestMapping(value = "/getT", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
-    public String getT(HttpSession session){
+    public Object getT(HttpSession session, @RequestParam(value = "flow", required = false) String flow){
         System.out.println("/getT");
         System.out.println("Session ID: " + session.getId());
         //根据IdP脚本处的t生成逻辑对应修改
@@ -68,6 +75,20 @@ public class HelloController {
             String t = privateKey.getD().toString(10);
 
             tStore.put(session.getId(), t);
+
+            // 授权码流生成 PKCE
+            if ("code".equals(flow)) {
+                String verifier = PkceUtil.generateVerifier();
+                String challenge = PkceUtil.challenge(verifier);
+                session.setAttribute(SESSION_VERIFIER_KEY, verifier);
+
+                Map<String,String> ans = new HashMap<>();
+                ans.put("t", t);
+                ans.put("challenge", challenge);
+                ans.put("method", "S256");
+                return ans;
+            }
+
             return t;
         } catch (Exception e) {
             e.printStackTrace();
@@ -94,8 +115,15 @@ public class HelloController {
             //IdP域名
             String IdPDomain = "http://localhost:8080";
 
+            //PKCE verifier
+            String verifier = (String) request.getSession()
+                    .getAttribute(SESSION_VERIFIER_KEY);
+            if (verifier == null) return "{\"result\":\"error\"}";
+            request.getSession().removeAttribute(SESSION_VERIFIER_KEY);
+
+
             Map<String, String> resp = AuthorizationCodeExchange.exchangeCodeForToken(
-                    code, IdPDomain);
+                    code, IdPDomain, verifier);
             tokenStr = resp.get("id_token");
             if (tokenStr == null) return "{\"result\":\"error\"}";
         } else {
