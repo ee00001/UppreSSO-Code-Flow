@@ -6,7 +6,10 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
+import sdk.ohttp.OHttpClient;
+
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Map;
 
 public class AuthorizationCodeExchange {
@@ -24,25 +27,37 @@ public class AuthorizationCodeExchange {
 
         System.out.println("[AuthorizationCodeExchange] POST → " + tokenEndpoint);
 
-        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
-        form.add("grant_type", "authorization_code");
-        form.add("code", code);
-        form.add("client_id", "anonymous");
-        form.add("client_secret", "public");
+        Map<String, String> form = new HashMap<>();
+        form.put("grant_type", "authorization_code");
+        form.put("code", code);
+        form.put("client_id", "anonymous");
+        form.put("client_secret", "public");
         //PKCE verifier
-        form.add("code_verifier", verifier);
+        form.put("code_verifier", verifier);
 
         //签名逻辑，暂时未签名，直接放行
         String formString = form.toString(); // 或自定义序列化
         String signed = AnonymousSignatureModule.sign(formString);
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+        // OHTTP 连接
+        try {
+            OHttpClient ohttp = new OHttpClient();          // 复用已有实现
+            Map<String, String> resp = ohttp.postForm(tokenEndpoint, form, null);
 
-        HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(form, headers);
+            return resp;
+        } catch (Exception e) {
+            throw new RuntimeException("OHTTP token exchange failed", e);
+        }
 
-        ResponseEntity<Map> resp = client.postForEntity(tokenEndpoint, entity, Map.class);
 
-        return (Map<String, String>) resp.getBody();
+// 原始 HTTP 连接
+//        HttpHeaders headers = new HttpHeaders();
+//        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+//
+//        HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(form, headers);
+//
+//        ResponseEntity<Map> resp = client.postForEntity(tokenEndpoint, entity, Map.class);
+//
+//        return (Map<String, String>) resp.getBody();
     }
 }

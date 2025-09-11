@@ -112,10 +112,10 @@ public class HelloController {
         if (jsonObj.has("code")) {
             String code = jsonObj.get("code").getAsString();
 
-            //IdP域名
+            // IdP域名
             String IdPDomain = "http://localhost:8080";
 
-            //PKCE verifier
+            // PKCE verifier
             String verifier = (String) request.getSession()
                     .getAttribute(SESSION_VERIFIER_KEY);
             if (verifier == null) return "{\"result\":\"error\"}";
