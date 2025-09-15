@@ -9,19 +9,24 @@
 		return;
 	}
 
-	const cert = sessionStorage.getItem("cert");
-	if (!cert) {
-		alert('登录失败：缺少 cert');
-		return;
+	// 尝试从 sessionStorage 获取 cert
+	let cert = sessionStorage.getItem("cert");
+	let redirectUri = null;
+
+	if (cert) {
+		// 解析 cert 获取 redirect_uri
+		const [, payloadB64] = cert.split('.');
+		const payloadObj = JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')));
+		redirectUri = payloadObj.redirect_uri;
 	}
 
-	const [, payloadB64] = cert.split('.');
-	const payloadObj = JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')));
-	const redirectUri = payloadObj.redirect_uri;
-
-	if (!redirectUri) {
-		alert('登录失败：redirect_uri 缺失');
-		return;
+	// 如果没有 cert，则从 sessionStorage 获取 redirect_url
+	if (!cert) {
+		redirectUri = sessionStorage.getItem("redirect_url");
+		if (!redirectUri) {
+			alert('登录失败：缺少 cert 和 redirect_url');
+			return;
+		}
 	}
 
 	const body = JSON.stringify({

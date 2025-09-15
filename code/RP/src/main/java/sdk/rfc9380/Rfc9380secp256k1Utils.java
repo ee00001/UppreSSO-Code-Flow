@@ -14,15 +14,8 @@ public class Rfc9380secp256k1Utils {
         return Rfc9380secp256k1.hash_to_curve(msg, DST);
     }
 
-    public static java.math.BigInteger hashToScalar(byte[] msg) {
-        return Rfc9380secp256k1.hash_to_scalar(msg, DST);
-    }
-
     public static ECPoint hashToCurve(String msg) {
         return hashToCurve(msg.getBytes(StandardCharsets.US_ASCII));
     }
 
-    public static java.math.BigInteger hashToScalar(String msg) {
-        return hashToScalar(msg.getBytes(StandardCharsets.US_ASCII));
-    }
 }

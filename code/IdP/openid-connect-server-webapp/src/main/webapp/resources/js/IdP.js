@@ -1,8 +1,5 @@
-
-var EC = elliptic.ec;
 let IdPDomain = "http://localhost:8080/openid-connect-server-webapp";
-var ec = new EC('secp256k1');
-var pKeyHex = "04de679e99a22c3f3f5e43379654f03e615fb8f532a88e3bf90bd7d4abc84ef7938eae1c96e011fb6fa9fc1018ce46cf1c461d06769bfc746aaa69ce09f98b055d";
+const pKeyHex = "04de679e99a22c3f3f5e43379654f03e615fb8f532a88e3bf90bd7d4abc84ef7938eae1c96e011fb6fa9fc1018ce46cf1c461d06769bfc746aaa69ce09f98b055d";
 
 let USE_CODE_FLOW = false;
 let state = null;
@@ -15,6 +12,11 @@ if(cert){
 	sessionStorage.setItem("cert", cert);
 }
 
+let redirect_url = getRedirectURL()
+if(redirect_url){
+	sessionStorage.setItem("redirect_url", redirect_url);
+}
+
 let t = sessionStorage.getItem("t") || getTFromUrl();
 if (!t) {
 	alert("缺少盲因子 t");
@@ -24,6 +26,7 @@ if (t) {
 	sessionStorage.setItem("t", t);
 }
 
+(async () => {
 if (window.location.pathname.includes('/post_token') ||
 	window.location.pathname.includes('/post_code')) {
 	// 由对应脚本处理
@@ -59,8 +62,9 @@ if (window.location.pathname.includes('/post_token') ||
 		sessionStorage.setItem('code_challenge_method', method);
 	}
 
-	doAuthorize();
+	await doAuthorize();
 }
+})();
 
 function stringToBytes(str) {
   let bytes = [];
@@ -137,6 +141,8 @@ function getCert() {
 	const params = new URLSearchParams(fragment);
 	const certParam = params.get('cert');
 
+	if (!certParam) return null;
+
 
 	const [header, payload, sigDer] = certParam.split('.');
 	if (!header || !payload || !sigDer) {
@@ -153,6 +159,16 @@ function getCert() {
 		return null;
 	}
 	return certParam;
+}
+
+function getRedirectURL() {
+	const params = new URLSearchParams(window.location.hash.substring(1));
+	return params.get('redirect_url');
+}
+
+function getTFromUrl() {
+	const params = new URLSearchParams(window.location.hash.substring(1));
+	return params.get('t');
 }
 
 function initXML(){
@@ -176,30 +192,44 @@ function base64urlDecode(str) {
   return atob(str);
 }
 
-function generatePID() {
+async function generatePID() {
 	if (!t) {
 		alert("No blind factor t provided.");
 		throw new Error("Missing t");
 	}
 
-	const CertTup = cert.split('.');
-	const payload = base64urlDecode(CertTup[1]);
-	const payloadObj = JSON.parse(payload);
-	certPayload = payloadObj;
+	if (cert) {
+		const CertTup = cert.split('.');
+		const payload = base64urlDecode(CertTup[1]);
+		const payloadObj = JSON.parse(payload);
+		certPayload = payloadObj;
 
-	const ID_RP = ec.keyFromPublic(payloadObj.RP_ID, 'hex').getPublic();
-	const key = ec.keyFromPrivate(t, 'hex');
-	const PID = ID_RP.mul(key.getPrivate());
-	return PID.encode('hex');
+		const ID_RP = ec.keyFromPublic(payloadObj.RP_ID, 'hex').getPublic();
+		const key = ec.keyFromPrivate(t, 'hex');
+		const PID = ID_RP.mul(key.getPrivate());
+		return PID.encode('hex');
+	}
+
+	if (redirect_url) {
+		const msgBytes = stringToBytes(redirect_url);
+		const dst = stringToBytes("QUUX-V01-CS02-with-secp256k1_XMD:SHA-256_SSWU_RO_");
+
+		// 调用异步 Hash-to-Curve
+		const ID_RP = await hashToCurve(msgBytes, dst);
+
+		// 用盲因子 t 做标量乘法
+		const key = ec.keyFromPrivate(t, 'hex');
+		const PID = ID_RP.mul(key.getPrivate());
+		return PID.encode('hex');
+	}
+
+	throw new Error("Neither cert nor redirect_url provided.");
 }
 
-function getTFromUrl() {
-	const params = new URLSearchParams(window.location.hash.substring(1));
-	return params.get('t');
-}
 
-function doAuthorize() {
-	const PID = generatePID();
+
+async function doAuthorize() {
+	const PID = await generatePID();
 	const base = IdPDomain
 
 	if(USE_CODE_FLOW){

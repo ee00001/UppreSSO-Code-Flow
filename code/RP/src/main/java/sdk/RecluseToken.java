@@ -46,7 +46,6 @@ public class RecluseToken {
         ECParameterSpec ecParameterSpec = ECNamedCurveTable.getParameterSpec("secp256k1");
         ECPoint point = ecParameterSpec.getCurve().decodePoint(hexStringToByteArray(subject));
         BigInteger n = ecParameterSpec.getN();
-//        BigInteger t_inv = ExtendEculid(new BigInteger(t, 10), n)[1];
         BigInteger t_inv = new BigInteger(t, 10).modInverse(n);
         ECPoint point_inverse = point.multiply(t_inv);
         return bytesToHex(point_inverse.getEncoded(false));
@@ -69,30 +68,6 @@ public class RecluseToken {
         }
         return data;
     }
-
-//    改用 BigInteger#modInverse 方法，未测试正确性，暂时保留原方法
-//    public BigInteger[] ExtendEculid(BigInteger a, BigInteger b)
-//    {
-//        BigInteger x,  y;
-//        if (b.compareTo(new BigInteger("0"))==0)
-//        {
-//            x = new BigInteger("1");
-//            y = new BigInteger("0");
-//            BigInteger[] t = new BigInteger[3];
-//            t[0] = a; t[1] = x; t[2] = y;
-//            return t;
-//        }
-//        BigInteger[] t = ExtendEculid(b, a.mod(b));
-//        BigInteger result = t[0];
-//        x = t[1];
-//        y = t[2];
-//        BigInteger temp = x;
-//        x = y;
-//        y = temp.subtract(a.divide(b).multiply(y));
-//        BigInteger[] t1 = new BigInteger[3];
-//        t1[0] = result; t1[1] = x; t1[2] = y;
-//        return t1;
-//    }
 
     public List<String> getAudience() {
         return audience;

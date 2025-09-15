@@ -73,7 +73,7 @@ export async function onBTNClickCode(){
     sessionStorage.setItem('oauth_state', state);
 
     const CodeFlowUrl = `${IdPDomain}/openid-connect-server-webapp/script` +
-        `#cert=${encodeURIComponent(cert)}` +
+        `#redirect_url=${encodeURIComponent(RPDomain)}` +
         `&t=${encodeURIComponent(t)}` +
         `&flow=code` +
         `&state=${state}` +
