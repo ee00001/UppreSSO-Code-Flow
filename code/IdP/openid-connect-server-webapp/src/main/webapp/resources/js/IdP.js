@@ -205,21 +205,65 @@ async function generatePID() {
 		certPayload = payloadObj;
 
 		const ID_RP = ec.keyFromPublic(payloadObj.RP_ID, 'hex').getPublic();
+
+		if (ec.curve.validate(ID_RP)) {
+			console.log("ID_RP 在 secp256k1 曲线上");
+		} else {
+			console.log("ID_RP 不在曲线上");
+		}
+
 		const key = ec.keyFromPrivate(t, 'hex');
 		const PID = ID_RP.mul(key.getPrivate());
+
+		if (ec.curve.validate(PID)) {
+			console.log("PID 在 secp256k1 曲线上");
+		} else {
+			console.log("PID 不在曲线上");
+		}
 		return PID.encode('hex');
 	}
 
 	if (redirect_url) {
-		const msgBytes = stringToBytes(redirect_url);
-		const dst = stringToBytes("QUUX-V01-CS02-with-secp256k1_XMD:SHA-256_SSWU_RO_");
+		console.log("redirect_url =", redirect_url)
 
-		// 调用异步 Hash-to-Curve
-		const ID_RP = await hashToCurve(msgBytes, dst);
+		const msgBytes = new TextEncoder().encode(redirect_url);
+		const dstBytes = new TextEncoder().encode("QUUX-V01-CS02-with-secp256k1_XMD:SHA-256_SSWU_RO_");
+
+		// Hash-to-Curve
+		const point = await hashToCurve(msgBytes, dstBytes);
+
+		// 转成 cert 分支一样的 hex 字符串格式
+		const pointHex = point.encode('hex', false);
+		const ID_RP = ec.keyFromPublic(pointHex, 'hex').getPublic();
+
+		// 输出 ID_RP 的坐标，便于检查
+		console.log("redirect_url 模式下 ID_RP:");
+		console.log("X:", ID_RP.getX().toString(10));
+		console.log("Y:", ID_RP.getY().toString(10));
+		console.log("HEX (uncompressed):", ID_RP.encode('hex', false));
+
+		if (ec.curve.validate(ID_RP)) {
+			console.log("ID_RP 在 secp256k1 曲线上");
+		} else {
+			console.log("ID_RP 不在曲线上");
+		}
 
 		// 用盲因子 t 做标量乘法
 		const key = ec.keyFromPrivate(t, 'hex');
 		const PID = ID_RP.mul(key.getPrivate());
+
+		// 输出 PID 的坐标，便于对比
+		console.log("redirect_url 模式下 PID:");
+		console.log("X:", PID.getX().toString(10));
+		console.log("Y:", PID.getY().toString(10));
+		console.log("HEX (uncompressed):", PID.encode('hex', false));
+
+		if (ec.curve.validate(PID)) {
+			console.log("PID 在 secp256k1 曲线上");
+		} else {
+			console.log("PID 不在曲线上");
+		}
+
 		return PID.encode('hex');
 	}
 
@@ -231,6 +275,8 @@ async function generatePID() {
 async function doAuthorize() {
 	const PID = await generatePID();
 	const base = IdPDomain
+
+	const delayMs = 600000;// 测试用
 
 	if(USE_CODE_FLOW){
 		//授权码流,带 challenge & method
@@ -244,6 +290,10 @@ async function doAuthorize() {
 			`&code_challenge_method=${method}`;
 
 		location.href = codeUrl;
+		// console.log(`即将在 ${delayMs/1000} 秒后跳转到: ${codeUrl}`);
+		// setTimeout(() => {
+		// 	location.href = codeUrl;
+		// }, delayMs);
 	}else{
 		//隐式流,通过 302 重定向
 		const implicitUrl = `${base}/authorize?` +
@@ -253,6 +303,10 @@ async function doAuthorize() {
 			`scope=openid%20email`;
 
 		location.href = implicitUrl;
+		// console.log(`即将在 ${delayMs/1000} 秒后跳转到: ${implicitUrl}`);
+		// setTimeout(() => {
+		// 	location.href = implicitUrl;
+		// }, delayMs);
 	}
 }
 
