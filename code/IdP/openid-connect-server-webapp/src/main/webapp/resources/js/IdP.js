@@ -74,22 +74,6 @@ function stringToBytes(str) {
   return bytes;
 }
 
-function bytesToHexString(bytes) {
-	return Array.from(bytes).map(function(byte) {
-		let hex = byte.toString(16);
-		return hex.length === 1 ? '0' + hex : hex;
-	}).join('');
-}
-
-function pad(arr) {
-	const buf = new Uint8Array(32);
-	// 如果 arr 长度超过 32，截取后 32 字节
-	// 如果 arr 长度小于 32，前面补零
-	const len = Math.min(arr.length, 32);
-	buf.set(arr.subarray(-len), 32 - len);
-	return Array.from(buf).map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
 function derToRs128(hexStr) {
 	const bytes = new Uint8Array(hexStr.match(/.{2}/g).map(b => parseInt(b, 16)));
 	let pos = 0;
@@ -134,7 +118,6 @@ function derToRs128(hexStr) {
 
 function getCert() {
 	const fragment = window.location.hash.substring(1);
-	// console.log('fragment =', fragment);
 
 	if (!fragment) return null;
 
@@ -184,8 +167,6 @@ function initXML(){
 	}
 }
 
-
-
 function base64urlDecode(str) {
   str = str.replace(/-/g, '+').replace(/_/g, '/');
   while (str.length % 4) str += '=';
@@ -232,15 +213,9 @@ async function generatePID() {
 		// Hash-to-Curve
 		const point = await hashToCurve(msgBytes, dstBytes);
 
-		// 转成 cert 分支一样的 hex 字符串格式
+		// 与 Cert 模式统一格式
 		const pointHex = point.encode('hex', false);
 		const ID_RP = ec.keyFromPublic(pointHex, 'hex').getPublic();
-
-		// 输出 ID_RP 的坐标，便于检查
-		console.log("redirect_url 模式下 ID_RP:");
-		console.log("X:", ID_RP.getX().toString(10));
-		console.log("Y:", ID_RP.getY().toString(10));
-		console.log("HEX (uncompressed):", ID_RP.encode('hex', false));
 
 		if (ec.curve.validate(ID_RP)) {
 			console.log("ID_RP 在 secp256k1 曲线上");
@@ -252,16 +227,10 @@ async function generatePID() {
 		const key = ec.keyFromPrivate(t, 'hex');
 		const PID = ID_RP.mul(key.getPrivate());
 
-		// 输出 PID 的坐标，便于对比
-		console.log("redirect_url 模式下 PID:");
-		console.log("X:", PID.getX().toString(10));
-		console.log("Y:", PID.getY().toString(10));
-		console.log("HEX (uncompressed):", PID.encode('hex', false));
-
 		if (ec.curve.validate(PID)) {
 			console.log("PID 在 secp256k1 曲线上");
 		} else {
-			console.log("PID 不在曲线上");
+			console.warn("PID 不在曲线上");
 		}
 
 		return PID.encode('hex');
@@ -290,10 +259,6 @@ async function doAuthorize() {
 			`&code_challenge_method=${method}`;
 
 		location.href = codeUrl;
-		// console.log(`即将在 ${delayMs/1000} 秒后跳转到: ${codeUrl}`);
-		// setTimeout(() => {
-		// 	location.href = codeUrl;
-		// }, delayMs);
 	}else{
 		//隐式流,通过 302 重定向
 		const implicitUrl = `${base}/authorize?` +

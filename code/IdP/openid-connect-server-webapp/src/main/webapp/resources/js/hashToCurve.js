@@ -1,4 +1,5 @@
 // hashToCurve.js
+// 适用于 secp256k1
 window.hashToCurve = hashToCurve;
 
 const EC = window.EC;
@@ -52,15 +53,14 @@ const K4 = [
 ];
 
 // ------------------ 工具函数 ------------------
-// xBI 是 BigInt 类型
 function fe(c, xBI) {
-	const xBN = new BN(xBI.toString()).umod(c.p); // 正数
-	if (!c._red) c._red = BN.red(c.p);            // 缓存红域对象
+	const xBN = new BN(xBI.toString()).umod(c.p);
+	if (!c._red) c._red = BN.red(c.p);
 	return xBN.toRed(c._red);
 }
 
 function powFE(c, feVal, eBI) {
-	const feRed = feVal.fromRed().umod(c.p).toRed(c._red); // 确保在同一红域
+	const feRed = feVal.fromRed().umod(c.p).toRed(c._red);
 	let result = new BN(1).toRed(c._red);
 	let base = feRed;
 	let exp = eBI;
@@ -74,10 +74,7 @@ function powFE(c, feVal, eBI) {
 }
 
 function sqrtFE(c, feVal) {
-	// 将红域值还原到普通 BN
 	const x = feVal.fromRed();
-
-	// 因为 p ≡ 3 mod 4, 用公式 sqrt(x) = x^((p+1)/4) mod p
 	const sqrtBN = x.toRed(c._red).redPow((c.p.addn(1)).divn(4));
 
 	return sqrtBN;
@@ -89,19 +86,6 @@ function sgn0(fe) {
 	return feBN.testn(0) ? 1 : 0;
 }
 
-function isInfinityPoint(p) {
-	return !p || p.x === null || p.y === null;
-}
-
-function isSquareModP(feVal, pBN) {
-	// feVal 必须是红域对象
-	const v = feVal.fromRed(); // 先转普通 BN
-	const red = BN.red(pBN);   // 红域
-	const vRed = v.toRed(red); // 转红域
-	const exp = pBN.subn(1).divn(2); // (p-1)/2
-	const res = vRed.redPow(exp);     // 红域的指数必须是普通 BN
-	return res.fromRed().eq(new BN(1));
-}
 
 class SqrtRatioResult {
 	constructor(isSquare, y) {
@@ -135,29 +119,16 @@ function sqrt_ratio_3mod4(c, u, v) {
 
 	const y = isQR ? y1 : y2;
 
-	console.log("sqrt_ratio_3mod4 debug:");
-	console.log("u=" + toBigIntegerString(u));
-	console.log("v=" + toBigIntegerString(v));
-	console.log("tv1=" + toBigIntegerString(tv1));
-	console.log("tv2=" + toBigIntegerString(tv2));
-	console.log("y1=" + toBigIntegerString(y1));
-	console.log("y2=" + toBigIntegerString(y2));
-	console.log("tv3=" + toBigIntegerString(tv3));
-	console.log("isQR=" + isQR);
-	console.log("y=" + toBigIntegerString(y));
-
 	return new SqrtRatioResult(isQR, y.redMul(new BN(1).toRed(c._red)));
 }
 
-
 function toBigIntegerString(bn) {
-	if (bn.red) {       // 红域对象
+	if (bn.red) {
 		return bn.fromRed().toString(10);
-	} else {            // 普通 BN
+	} else {
 		return bn.toString(10);
 	}
 }
-
 
 // ------------------ SWU 映射到 E' ------------------
 function mapToCurveSSWU_Eprime(uBI) {
@@ -166,12 +137,8 @@ function mapToCurveSSWU_Eprime(uBI) {
 	const B = fe(CURVE_EPRIME, B_BI);
 	const Z = fe(CURVE_EPRIME, Z_BI);
 
-	console.log("uBI=" + uBI);
-
 	// 输入 u
 	const u = fe(CURVE_EPRIME, uBI);
-
-	console.log("u=" + toBigIntegerString(u));
 
 	// Step 1: tv1 = Z * u^2
 	let tv1 = u.redSqr().redMul(Z);
@@ -222,27 +189,10 @@ function mapToCurveSSWU_Eprime(uBI) {
 		y = sqrtRes2.y;
 	}
 
-	// debug log
-	console.log("tv1=" + toBigIntegerString(tv1) +
-		", tv2=" + toBigIntegerString(tv2) +
-		", x1=" + toBigIntegerString(x1) +
-		", x1Inv=" + toBigIntegerString(x1Inv));
-
-	console.log("x2=" + toBigIntegerString(x2) +
-		", x3=" + toBigIntegerString(x3));
-
-	console.log("gx1=" + toBigIntegerString(gx1) +
-		", gx2=" + toBigIntegerString(gx2));
-
-
 	// Step 11: Fix sign of y
 	if (sgn0(u) !== sgn0(y)) {
 		y = y.redNeg();
 	}
-
-	console.log("x=" + toBigIntegerString(x) +", y=" + toBigIntegerString(y) +
-		", isSquare=" + sqrtRes.isSquare);
-
 	// 返回曲线点
 	return CURVE_EPRIME.point(x.fromRed(), y.fromRed());
 }
@@ -253,9 +203,6 @@ function isoMap(qPrime) {
 
 	const xP = new BN(toBigIntegerString(qPrime.x)).umod(ec.curve.p);
 	const yP = new BN(toBigIntegerString(qPrime.y)).umod(ec.curve.p);
-
-	console.log("xP=" + toBigIntegerString(xP) +
-		", yP=" + toBigIntegerString(yP));
 
 	// 常量
 	const k13 = new BN(toBigIntegerString(K1[3])).umod(ec.curve.p);
@@ -279,20 +226,11 @@ function isoMap(qPrime) {
 	const x2 = xP.mul(xP).umod(ec.curve.p);
 	const x3 = x2.mul(xP).umod(ec.curve.p);
 
-	console.log("x2=" + toBigIntegerString(x2) +
-		", x3=" + toBigIntegerString(x3));
-
 	// 分子/分母
 	const xNum = k13.mul(x3).add(k12.mul(x2)).add(k11.mul(xP)).add(k10).umod(ec.curve.p);
 	const xDen = x2.add(k21.mul(xP)).add(k20).umod(ec.curve.p);
 	const yNum = k33.mul(x3).add(k32.mul(x2)).add(k31.mul(xP)).add(k30).umod(ec.curve.p);
 	const yDen = x3.add(k42.mul(x2)).add(k41.mul(xP)).add(k40).umod(ec.curve.p);
-
-
-	console.log("xNum=" + toBigIntegerString(xNum) +
-		", xDen=" + toBigIntegerString(xDen));
-	console.log("yNum=" + toBigIntegerString(yNum) +
-		", yDen=" + toBigIntegerString(yDen));
 
 	// 特殊情况
 	if (xDen.isZero() || yDen.isZero()) return ec.curve.point(null, null);
@@ -301,10 +239,6 @@ function isoMap(qPrime) {
 	const xMapped = xNum.mul(xDen.invm(ec.curve.p)).umod(ec.curve.p);
 	const yDenInv = yDen.invm(ec.curve.p);
 	const yMapped = yP.mul(yNum).mul(yDenInv).umod(ec.curve.p);
-
-
-	console.log("xMapped=" + toBigIntegerString(xMapped) +
-		", yMapped=" + toBigIntegerString(yMapped));
 
 	return ec.curve.point(xMapped, yMapped);
 }
@@ -341,7 +275,7 @@ async function sha256Uint8(bytes) {
 	return new Uint8Array(hashBuffer);
 }
 
-// --- expandMessageXMD（严格按 RFC / Java 实现） ---
+// --- expandMessageXMD ---
 async function expandMessageXMD(msgBytes, dstBytes, len) {
 	const b_in_bytes = 32;
 	const ell = Math.ceil(len / b_in_bytes);
@@ -388,12 +322,7 @@ function bytesToBigIntModP(bytes, p) {
 		.join("");
 	let bi = BigInt("0x" + hex);
 
-	// 和 Java 一样，最后 mod p
 	return bi % p;
-}
-
-function bytesToHex(bytes) {
-	return Array.from(bytes).map(b => b.toString(16).padStart(2,'0')).join('');
 }
 
 // --- hash-to-curve 主函数
@@ -413,70 +342,12 @@ async function hashToCurve(msgBytes, dstBytes) {
 
 	const Point = Q0.add(Q1);
 
-	console.log("X:", Point.getX().toString(10));
-	console.log("Y:", Point.getY().toString(10));
-
 	if (ec.curve.validate(Point)) {
 		console.log("P 在 secp256k1 曲线上");
 	} else {
-		console.log("P 不在曲线上");
+		console.warn("P 不在曲线上");
 	}
+
 	return Point;
 }
 
-// // 以下是测试用
-// function toFixedLengthHex(num, lengthBytes = 32) {
-// 	let hex;
-// 	if (typeof num === 'bigint') {
-// 		hex = num.toString(16);
-// 	} else if (typeof num === 'object' && typeof num.toString === 'function') {
-// 		hex = BigInt(num.toString(10)).toString(16); // 转 BigInt 再转 16 进制
-// 	} else {
-// 		throw new Error("Unsupported type");
-// 	}
-//
-// 	const expectedLen = lengthBytes * 2;
-//
-// 	if (hex.length < expectedLen) {
-// 		hex = hex.padStart(expectedLen, '0');
-// 	} else if (hex.length > expectedLen) {
-// 		hex = hex.slice(-expectedLen);
-// 	}
-//
-// 	return hex;
-// }
-
-// // 辅助函数：打印 EC 点
-// function printECPoint(name, point) {
-// 	console.log(`${name}.x = ${toFixedLengthHex(BigInt(point.x), COORD_BYTES)}`);
-// 	console.log(`${name}.y = ${toFixedLengthHex(BigInt(point.y), COORD_BYTES)}`);
-// }
-
-// async function testHashToCurve(input = "abc") {
-// 	const msg = new TextEncoder().encode(input); // 将字符串转成 Uint8Array
-// 	const dst = new TextEncoder().encode("QUUX-V01-CS02-with-secp256k1_XMD:SHA-256_SSWU_RO_");
-//
-// 	const L = Number(L_BYTES);
-// 	const uniform = await expandMessageXMD(msg, dst, 2 * L);
-//
-// 	const u0 = BigInt(bytesToBigIntModP(uniform.slice(0, L), P_BI));
-// 	const u1 = BigInt(bytesToBigIntModP(uniform.slice(L, 2 * L), P_BI));
-//
-// 	const Q0prime = mapToCurveSSWU_Eprime(u0);
-// 	const Q1prime = mapToCurveSSWU_Eprime(u1);
-//
-// 	const Q0 = isoMap(Q0prime);
-// 	const Q1 = isoMap(Q1prime);
-// 	const P = Q0.add(Q1);
-//
-// 	// 输出 u0/u1
-// 	console.log("u0 = " + toFixedLengthHex(BigInt(u0), COORD_BYTES));
-// 	console.log("u1 = " + toFixedLengthHex(BigInt(u1), COORD_BYTES));
-//
-// // 输出所有关键 EC 点
-// 	printECPoint("Q0prime", Q0prime);
-// 	printECPoint("Q1prime", Q1prime);
-// 	printECPoint("Q0", Q0);
-// 	printECPoint("Q1", Q1);
-// 	printECPoint("P", P);
-// }

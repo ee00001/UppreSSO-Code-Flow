@@ -83,7 +83,6 @@ public class Rfc9380secp256k1 {
         boolean isSquare;
         ECFieldElement y;
 
-
         SqrtRatioResult(boolean isSquare, ECFieldElement y) {
             this.isSquare = isSquare;
             this.y = y;
@@ -110,16 +109,16 @@ public class Rfc9380secp256k1 {
 
         ECFieldElement y = isQR ? y1 : y2;
 
-        System.out.println("sqrt_ratio_3mod4 debug:");
-        System.out.println("u=" + u.toBigInteger());
-        System.out.println("v=" + v.toBigInteger());
-        System.out.println("tv1=" + tv1.toBigInteger());
-        System.out.println("tv2=" + tv2.toBigInteger());
-        System.out.println("y1=" + y1.toBigInteger());
-        System.out.println("y2=" + y2.toBigInteger());
-        System.out.println("tv3=" + tv3.toBigInteger());
-        System.out.println("isQR=" + isQR);
-        System.out.println("y=" + y.toBigInteger());
+//        System.out.println("sqrt_ratio_3mod4 debug:");
+//        System.out.println("u=" + u.toBigInteger());
+//        System.out.println("v=" + v.toBigInteger());
+//        System.out.println("tv1=" + tv1.toBigInteger());
+//        System.out.println("tv2=" + tv2.toBigInteger());
+//        System.out.println("y1=" + y1.toBigInteger());
+//        System.out.println("y2=" + y2.toBigInteger());
+//        System.out.println("tv3=" + tv3.toBigInteger());
+//        System.out.println("isQR=" + isQR);
+//        System.out.println("y=" + y.toBigInteger());
 
         return new SqrtRatioResult(isQR, y);
     }
@@ -134,11 +133,11 @@ public class Rfc9380secp256k1 {
         ECFieldElement B = fe(CURVE_EPRIME, B_PRIME);
         ECFieldElement Z = fe(CURVE_EPRIME, Z_BI);
 
-        System.out.println("uBi=" +  uBI);
+//        System.out.println("uBi=" +  uBI);
 
         ECFieldElement u = fe(CURVE_EPRIME, uBI);
 
-        System.out.println("u=" +  u.toBigInteger());
+//        System.out.println("u=" +  u.toBigInteger());
 
         // Step 1: tv1 = Z * u^2
         ECFieldElement tv1 = u.square().multiply(Z);
@@ -152,7 +151,7 @@ public class Rfc9380secp256k1 {
         // Step 4: x1 = inv0(x1)
         ECFieldElement x1Inv = x1.invert();
         if (x1.isZero()) {
-            x1Inv = Z.invert(); // per inv0 definition
+            x1Inv = Z.invert();
         }
 
         ECFieldElement x2;
@@ -180,16 +179,16 @@ public class Rfc9380secp256k1 {
         ECFieldElement x = sqrtRes.isSquare ? x2 : x3;
         ECFieldElement y = sqrtRes.isSquare ? sqrtRes.y : sqrt_ratio_3mod4(CURVE_EPRIME, gx2, fe(CURVE_EPRIME, BigInteger.ONE)).y;
 
-        System.out.println("tv1=" + tv1.toBigInteger() + ", tv2=" + tv2.toBigInteger() + ", x1=" + x1.toBigInteger() + ", x1Inv=" + x1Inv.toBigInteger());
-        System.out.println("x2=" + x2.toBigInteger() + ", x3=" + x3.toBigInteger());
-        System.out.println("gx1=" + gx1.toBigInteger() + ", gx2=" + gx2.toBigInteger());
+//        System.out.println("tv1=" + tv1.toBigInteger() + ", tv2=" + tv2.toBigInteger() + ", x1=" + x1.toBigInteger() + ", x1Inv=" + x1Inv.toBigInteger());
+//        System.out.println("x2=" + x2.toBigInteger() + ", x3=" + x3.toBigInteger());
+//        System.out.println("gx1=" + gx1.toBigInteger() + ", gx2=" + gx2.toBigInteger());
 
         // Step 11: Fix sign of y
         if (sgn0(u) != sgn0(y)) {
             y = y.negate();
         }
 
-        System.out.println("x=" + x.toBigInteger() + ", y=" + y.toBigInteger() + ", isSquare=" + sqrtRes.isSquare);
+//        System.out.println("x=" + x.toBigInteger() + ", y=" + y.toBigInteger() + ", isSquare=" + sqrtRes.isSquare);
 
         return CURVE_EPRIME.createPoint(x.toBigInteger().mod(P), y.toBigInteger().mod(P));
     }
@@ -201,7 +200,6 @@ public class Rfc9380secp256k1 {
      */
     public static ECPoint isoMap(ECPoint qPrime) {
         if (qPrime.isInfinity()) return CURVE_E.getInfinity();
-
 
         ECFieldElement xP = CURVE_E.fromBigInteger(qPrime.getAffineXCoord().toBigInteger());
         ECFieldElement yP = CURVE_E.fromBigInteger(qPrime.getAffineYCoord().toBigInteger());
@@ -230,7 +228,7 @@ public class Rfc9380secp256k1 {
         ECFieldElement x2 = xP.square();
         ECFieldElement x3 = x2.multiply(xP);
 
-        System.out.println("x2=" + x2.toBigInteger() + ", x3=" + x3.toBigInteger());
+//        System.out.println("x2=" + x2.toBigInteger() + ", x3=" + x3.toBigInteger());
 
         // x_num = k13 * x'^3 + k12 * x'^2 + k11 * x' + k10
         ECFieldElement xNum = k13.multiply(x3).add(k12.multiply(x2)).add(k11.multiply(xP)).add(k10);
@@ -253,9 +251,9 @@ public class Rfc9380secp256k1 {
 
         ECFieldElement yMapped = yP.multiply(yNum).multiply(yDen.invert());
 
-        System.out.println("xNum=" + xNum.toBigInteger() + ", xDen=" + xDen.toBigInteger());
-        System.out.println("yNum=" + yNum.toBigInteger() + ", yDen=" + yDen.toBigInteger());
-        System.out.println("xMapped=" + xMapped.toBigInteger() + ", yMapped=" + yMapped.toBigInteger());
+//        System.out.println("xNum=" + xNum.toBigInteger() + ", xDen=" + xDen.toBigInteger());
+//        System.out.println("yNum=" + yNum.toBigInteger() + ", yDen=" + yDen.toBigInteger());
+//        System.out.println("xMapped=" + xMapped.toBigInteger() + ", yMapped=" + yMapped.toBigInteger());
 
         BigInteger xMappedBI = xMapped.toBigInteger().mod(P);
         BigInteger yMappedBI = yMapped.toBigInteger().mod(P);
