@@ -1,6 +1,7 @@
 buildscript {
     repositories {
         maven { url 'https://maven.aliyun.com/repository/public' }
+        maven { url 'https://mvnrepository.com/artifact/org.bouncycastle/bcprov-jdk15to18' }
         mavenCentral()
     }
     dependencies {
@@ -38,7 +39,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
     implementation 'org.json:json:20231013'
     // OHTTP's HPKE
-    implementation 'org.bouncycastle:bcprov-jdk15on:1.70'
+    implementation("org.bouncycastle:bcprov-jdk15to18:1.82")
     // test
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.0'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.0'

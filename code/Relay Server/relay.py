@@ -10,7 +10,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if self.headers.get("Content-Type") != "application/ohttp":
             self.send_error(400, "Bad Content-Type"); return
 
-        length = int(self.headers["Content-Length"])
+        length = int(self.headers.get("Content-Length", 0))
         body   = self.rfile.read(length)
 
         # 测试用输出，实际运行时删除
@@ -20,22 +20,34 @@ class Handler(http.server.BaseHTTPRequestHandler):
         print(f"[{datetime.datetime.now()}] OHTTP packet (hex, head 64B): {body[:64].hex()}")
         print(f"[{datetime.datetime.now()}] Blind forward {len(body)}B -> {GATEWAY_URL}")
 
+        # 构造发送给 Gateway 的请求
+        req = urllib.request.Request(
+            GATEWAY_URL + "/.well-known/ohttp-gateway",
+            data=body,
+            headers={
+                "Content-Type": "message/ohttp-req",
+                "Content-Length": str(len(body)),
+            },
+            method="POST"
+        )
+
         # 盲转发到 Gateway
         try:
-            req = urllib.request.Request(GATEWAY_URL + "/.well-known/ohttp-gateway",
-                                         data=body,
-                                         headers={"Content-Type": "application/ohttp"})
-            resp = urllib.request.urlopen(req, timeout=10)
-            out  = resp.read()
+            with urllib.request.urlopen(req) as resp:
+                gateway_resp = resp.read()
+                status_code = resp.getcode()
         except Exception as e:
-            self.send_error(502, "Bad Gateway"); return
+            self.send_response(502)
+            self.end_headers()
+            self.wfile.write(f"Relay error: {e}".encode("utf-8"))
+            return
 
-        # 原路返回
-        self.send_response(200)
-        self.send_header("Content-Type", "application/ohttp")
-        self.send_header("Content-Length", str(len(out)))
+        # 转发 Gateway 的响应给客户端
+        self.send_response(status_code)
+        self.send_header("Content-Type", "message/ohttp-resp")
+        self.send_header("Content-Length", str(len(gateway_resp)))
         self.end_headers()
-        self.wfile.write(out)
+        self.wfile.write(gateway_resp)
 
 def run():
     with socketserver.TCPServer(("", RELAY_PORT), Handler) as httpd:
