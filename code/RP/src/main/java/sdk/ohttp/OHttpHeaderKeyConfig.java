@@ -50,6 +50,14 @@ public class OHttpHeaderKeyConfig {
         return new OHttpHeaderKeyConfig(keyId, kemId, kdfId, aeadId);
     }
 
+    public byte[] serializeRecipientContextInfo(String requestLabel) {
+        byte[] labelBytes = requestLabel.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        ByteBuffer buf = ByteBuffer.allocate(1 + labelBytes.length);
+        buf.put(keyId);           // keyId 绑定到请求
+        buf.put(labelBytes);      // label
+        return buf.array();
+    }
+
     @Override
     public String toString() {
         return "[key_id=" + (keyId & 0xFF) +
@@ -57,6 +65,15 @@ public class OHttpHeaderKeyConfig {
                 ", kdf=" + HpkeKdf.toString(kdfId) +
                 ", aead=" + HpkeAead.toString(aeadId) + "]";
     }
+
+    public int getEncLength() {
+        switch (kemId) {
+            case HpkeKem.DHKEM_X25519_HKDF_SHA256: return 32;
+            // 如果以后支持更多 KEM，需要扩展
+            default: throw new IllegalArgumentException("Unknown KEM id: " + kemId);
+        }
+    }
+
 }
 
 // === 支持的算法枚举 ===

@@ -1,2 +1,8 @@
 *.lock
 *.lock
+
+# Ignore all PEM files by default
+*.pem
+
+# Explicitly keep the public key
+!ohttp_pub.pem
