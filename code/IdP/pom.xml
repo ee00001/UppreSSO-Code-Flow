@@ -592,10 +592,15 @@
 				<artifactId>nimbus-jose-jwt</artifactId>
 				<version>5.4</version>
 			</dependency>
+<!--			<dependency>-->
+<!--				<groupId>org.bouncycastle</groupId>-->
+<!--				<artifactId>bcprov-jdk15on</artifactId>-->
+<!--				<version>[1.52,)</version>-->
+<!--			</dependency>-->
 			<dependency>
 				<groupId>org.bouncycastle</groupId>
-				<artifactId>bcprov-jdk15on</artifactId>
-				<version>[1.52,)</version>
+				<artifactId>bcprov-jdk15to18</artifactId>
+				<version>1.80</version>
 			</dependency>
 			<dependency>
 				<groupId>org.eclipse.persistence</groupId>

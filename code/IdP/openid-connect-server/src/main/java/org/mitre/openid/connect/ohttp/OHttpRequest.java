@@ -1,4 +1,4 @@
-package sdk.ohttp;
+package org.mitre.openid.connect.ohttp;
 
 import org.bouncycastle.crypto.AsymmetricCipherKeyPair;
 import org.bouncycastle.crypto.hpke.*;
