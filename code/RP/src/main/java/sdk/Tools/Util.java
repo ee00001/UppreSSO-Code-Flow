@@ -3,8 +3,7 @@ package sdk.Tools;
 import java.math.BigInteger;
 
 public class Util {
-	
-	/**	������ת���ֽ������ֽ����飩������*/
+
 	public static byte[] bigInteger2Bytes(BigInteger n) 
 	{
 		byte tmp[] = null;
@@ -28,8 +27,7 @@ public class Util {
         }
         return tmp;
 	}
-	
-	/** bytes ת����16�����ַ��� */
+
 	public static String bytes2HexString(byte[] b){
 		 final String hexChar = "0123456789ABCDEF";
 		 StringBuilder sb = new StringBuilder();
@@ -41,8 +39,7 @@ public class Util {
 		 
 		 return sb.toString();
 	 }
-	
-	/** 16�����ַ���ת���� bytes */
+
 	public static byte[] hexString2Bytes(String hexString){
 		if (hexString == null || hexString.equals("")){
 			return null;

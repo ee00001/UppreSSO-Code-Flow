@@ -30,6 +30,14 @@ public class OHttpHeaderKeyConfig {
     public int getKdfId() { return kdfId; }
     public int getAeadId() { return aeadId; }
 
+	public byte[] encode(byte[] publicKey) {
+		byte[] header = serializePayloadHeader();
+		ByteBuffer buf = ByteBuffer.allocate(header.length + publicKey.length);
+		buf.put(header);
+		buf.put(publicKey);
+		return buf.array();
+	}
+
     // === 校验算法 ID 合法性 ===
     public void validate() {
         if (!HpkeKem.isSupported(kemId))

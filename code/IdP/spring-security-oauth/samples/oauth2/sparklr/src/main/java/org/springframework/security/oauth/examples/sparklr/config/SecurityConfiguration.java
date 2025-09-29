@@ -39,7 +39,7 @@ public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
             .authorizeRequests()
                 .antMatchers("/login.jsp").permitAll()
 				 .antMatchers("/code4token").permitAll()
-                .anyRequest().hasRole("USER")
+					 .anyRequest().hasRole("USER")
                 .and()
             .exceptionHandling()
                 .accessDeniedPage("/login.jsp?authorization_error=true")

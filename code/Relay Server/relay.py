@@ -1,28 +1,27 @@
 import http.server, socketserver, urllib.request, os, datetime
 
 RELAY_PORT   = int(os.getenv("PORT", "9090"))
-GATEWAY_URL  = os.getenv("GATEWAY_ORIGIN", "http://localhost:8080")
+GATEWAY_URL  = os.getenv("GATEWAY_ORIGIN", "http://localhost:8080/openid-connect-server-webapp")
 
 class Handler(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
-        if self.path != "/.well-known/ohttp-relay":
-            self.send_error(404); return
-        if self.headers.get("Content-Type") != "application/ohttp":
+        if self.headers.get("Content-Type") != "message/ohttp-req":
             self.send_error(400, "Bad Content-Type"); return
 
         length = int(self.headers.get("Content-Length", 0))
         body   = self.rfile.read(length)
 
-        # 测试用输出，实际运行时删除
-        client_ip = self.client_address[0]
-        client_port = self.client_address[1]
-        print(f"[{datetime.datetime.now()}] Client {client_ip}:{client_port} -> Relay")
-        print(f"[{datetime.datetime.now()}] OHTTP packet (hex, head 64B): {body[:64].hex()}")
-        print(f"[{datetime.datetime.now()}] Blind forward {len(body)}B -> {GATEWAY_URL}")
+        # 调试输出：客户端请求信息
+        client_ip, client_port = self.client_address
+        print("="*60)
+        print(f"[{datetime.datetime.now()}] Client {client_ip}:{client_port} → Relay")
+        print(f"Headers: {dict(self.headers)}")
+        print(f"OHTTP packet len={len(body)} head64={body[:64].hex()}")
+        print(f"Forwarding to Gateway: {GATEWAY_URL}/gateway")
 
         # 构造发送给 Gateway 的请求
         req = urllib.request.Request(
-            GATEWAY_URL + "/.well-known/ohttp-gateway",
+            GATEWAY_URL + "/gateway",
             data=body,
             headers={
                 "Content-Type": "message/ohttp-req",
@@ -36,7 +35,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
             with urllib.request.urlopen(req) as resp:
                 gateway_resp = resp.read()
                 status_code = resp.getcode()
+                print(f"Gateway status={status_code}, resp_len={len(gateway_resp)}")
+                if len(gateway_resp) > 0:
+                    print(f"Gateway resp head64={gateway_resp[:64].hex()}")
         except Exception as e:
+            print(f"[ERROR] Relay to Gateway failed: {e}")
             self.send_response(502)
             self.end_headers()
             self.wfile.write(f"Relay error: {e}".encode("utf-8"))

@@ -6,59 +6,146 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
+import sdk.bhttp.BinaryHttpMessage;
+import sdk.bhttp.BinaryHttpRequest;
+import sdk.bhttp.BinaryHttpResponse;
 import sdk.ohttp.OHttpClient;
+import sdk.ohttp.OHttpHeaderKeyConfig;
+import sdk.ohttp.PemFileUtil;
 
+import java.io.*;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 
+import static sdk.ohttp.OHttpConfig.RELAY_URL;
+
 public class AuthorizationCodeExchange {
 
-    //与IdP建立连接，TODO：更换为匿名网络，
-    private static RestTemplate connectToIdP(String idpDomain) {
-        return new RestTemplate();
+    public static Map<String, String> exchangeCodeForToken(
+            String code, String idpDomain, String verifier) throws Exception {
+
+        //  拉取/缓存公钥
+        byte[] pubKey = getOrFetchServerPubKey(idpDomain);
+
+        // 构造 bHTTP 请求
+        byte[] bhttp = buildBHttpRequest(code, verifier, idpDomain);
+
+        // 通过 OHTTP 客户端发往 IdP 的 /gateway
+        OHttpClient ohttpClient = new OHttpClient(OHttpHeaderKeyConfig.defaultConfig(), pubKey);
+
+        byte[] plaintextResp = ohttpClient.sendOHttpRequest(bhttp, RELAY_URL, "ohttp request");
+
+        BinaryHttpResponse bresp = BinaryHttpResponse.deserialize(plaintextResp, 0);
+
+        String json = new String(bresp.getBody(), StandardCharsets.UTF_8);
+        return new Gson().fromJson(json, Map.class);
+
+//        String tokenEndpoint = idpDomain + "/openid-connect-server-webapp" + "/code4token";
+//
+//        // 使用 MultiValueMap
+//        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+//        form.add("grant_type", "authorization_code");
+//        form.add("code", code);
+//        form.add("client_id", "anonymous");
+//        form.add("client_secret", "public");
+//        // PKCE verifer
+//        form.add("code_verifier", verifier);
+//
+//        //签名逻辑，暂时未签名，直接放行
+//        String formString = form.toString(); // 或自定义序列化
+//        String signed = AnonymousSignatureModule.sign(formString);
+
+//
+//        //原始 HTTP 连接
+//        HttpHeaders headers = new HttpHeaders();
+//        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+//
+//        HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(form, headers);
+//
+//        ResponseEntity<Map> resp = client.postForEntity(tokenEndpoint, entity, Map.class);
+//
+//        return (Map<String, String>) resp.getBody();
     }
 
-    public static Map<String, String> exchangeCodeForToken(
-            String code, String idpDomain, String verifier) {
-        RestTemplate client = connectToIdP(idpDomain);
+    private static byte[] getOrFetchServerPubKey(String idpDomain) throws IOException {
+        File f = new File("./ohttp_pub.pem");
+        if (f.exists()) {
+            return PemFileUtil.readPem("./ohttp_pub.pem");
+        }
+        // 没有就从 IdP 获取
+        String keyUrl = idpDomain + "/openid-connect-server-webapp" + "/.well-known/ohttp-gateway-key";
+        HttpURLConnection conn = (HttpURLConnection) new URL(keyUrl).openConnection();
+        conn.setRequestMethod("GET");
+        conn.setRequestProperty("Accept", "application/ohttp-keys");
 
-        String tokenEndpoint = idpDomain + "/openid-connect-server-webapp" + "/code4token";
+        byte[] cfg;
+        try (InputStream is = conn.getInputStream();
+             ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
+            byte[] buf = new byte[4096];
+            int len;
+            while ((len = is.read(buf)) != -1) {
+                bos.write(buf, 0, len);
+            }
+            cfg = bos.toByteArray();
+        }
 
-        System.out.println("[AuthorizationCodeExchange] POST → " + tokenEndpoint);
+        // 解析 keyconfig，提取公钥
+        ByteBuffer buf = ByteBuffer.wrap(cfg);
+        buf.get(); // keyId
+        buf.getShort(); // kem
+        buf.getShort(); // kdf
+        buf.getShort(); // aead
+        byte[] pubKey = new byte[buf.remaining()];
+        buf.get(pubKey);
 
-        // 使用 MultiValueMap
-        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
-        form.add("grant_type", "authorization_code");
-        form.add("code", code);
-        form.add("client_id", "anonymous");
-        form.add("client_secret", "public");
-        // PKCE verifer
-        form.add("code_verifier", verifier);
+        // 转成 PEM 并保存
+        String base64 = java.util.Base64.getEncoder().encodeToString(pubKey);
+        String pem = "-----BEGIN X25519 PUBLIC KEY-----\n"
+                + base64 + "\n-----END X25519 PUBLIC KEY-----\n";
+        Files.write(Paths.get("./ohttp_pub.pem"), pem.getBytes(StandardCharsets.US_ASCII));
 
-        //签名逻辑，暂时未签名，直接放行
-        String formString = form.toString(); // 或自定义序列化
-        String signed = AnonymousSignatureModule.sign(formString);
+        return pubKey;
+    }
 
-//        // OHTTP 连接
-//        try {
-//            OHttpClient ohttp = new OHttpClient();          // 复用已有实现
-//            Map<String, String> resp = ohttp.postForm(tokenEndpoint, form, null);
-//
-//            return resp;
-//        } catch (Exception e) {
-//            throw new RuntimeException("OHTTP token exchange failed", e);
-//        }
+    private static byte[] buildBHttpRequest(String code, String verifier, String idpBase) throws IOException {
+        // 提取域名和协议
+        URL idpUrl = new URL(idpBase);
+        String scheme = idpUrl.getProtocol();
+        String authority = idpUrl.getAuthority();
 
+        //  组装待签名参数（不含 client_assertion）
+        Map<String,String> params = new HashMap<>();
+        params.put("grant_type", "authorization_code");
+        params.put("code", code);
+        params.put("client_id", "anonymous");
+        params.put("client_secret", "public");
+        params.put("code_verifier", verifier);
 
-        //原始 HTTP 连接
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+        // 规范化并签名
+        String toSign = sdk.Tools.FormUtil.canonicalForSigning(params);
+        String assertion = AnonymousSignatureModule.sign(toSign); // 签名模块
 
-        HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(form, headers);
+        // 签名作为表单字段
+        params.put("client_assertion", assertion);
 
-        ResponseEntity<Map> resp = client.postForEntity(tokenEndpoint, entity, Map.class);
+        // 编码为最终的请求体
+        byte[] body = sdk.Tools.FormUtil.encodeBody(params);
 
-        return (Map<String, String>) resp.getBody();
+        BinaryHttpRequest bReq = new BinaryHttpRequest()
+                .setMethod("POST")
+                .setScheme(scheme)
+                .setAuthority(authority)
+                .setPath("/openid-connect-server-webapp/code4token");  // token endpoint 路径
+
+        bReq.addHeaderField(new BinaryHttpMessage.Field("content-type", "application/x-www-form-urlencoded"));
+        bReq.setBody(body);
+
+        return bReq.serialize();
     }
 }

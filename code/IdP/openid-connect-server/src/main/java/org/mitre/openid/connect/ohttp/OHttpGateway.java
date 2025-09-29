@@ -1,15 +1,24 @@
 package org.mitre.openid.connect.ohttp;
 
-
 import org.bouncycastle.crypto.AsymmetricCipherKeyPair;
+import org.mitre.openid.connect.bhttp.BinaryHttpMessage;
+import org.mitre.openid.connect.bhttp.BinaryHttpRequest;
+import org.mitre.openid.connect.bhttp.BinaryHttpResponse;
 import org.mitre.openid.connect.privacy.PrivacyTokenEndpoint;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.oauth2.common.OAuth2AccessToken;
+import org.springframework.security.oauth2.common.exceptions.InvalidClientException;
+import org.springframework.security.oauth2.common.exceptions.InvalidGrantException;
+import org.springframework.security.oauth2.common.exceptions.InvalidRequestException;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
 
 
 @RestController
@@ -35,8 +44,86 @@ public class OHttpGateway {
 		// 解密 OHTTP 请求
 		OHttpRequest ohttpReq = OHttpRequest.parseWire(wire);
 		OHttpRequest.Context serverCtx = ohttpReq.buildServerContext(serverKeyPair, "ohttp request");
-		byte[] plainHttp = serverCtx.open(ohttpReq.getCiphertext());
 
-		return null;
+		byte[] bhttpReqBytes;
+		try {
+			bhttpReqBytes = serverCtx.open(ohttpReq.getCiphertext());
+		} catch (Exception e) {
+			return ohttpError(serverCtx, 400, "invalid ohttp request");
+		}
+
+		// 解析 Binary HTTP 请求
+		BinaryHttpRequest breq;
+		try {
+			breq = BinaryHttpRequest.deserialize(bhttpReqBytes, 0);
+		} catch (Exception e) {
+			return ohttpError(serverCtx, 400, "malformed bhttp request");
+		}
+
+		if (!"POST".equalsIgnoreCase(breq.getMethod())) {
+			return ohttpError(serverCtx, 405, "method not allowed");
+		}
+
+		// 查找 content-type
+		String ctype = breq.getHeaderFields().stream()
+			.filter(f -> f.name.equalsIgnoreCase("content-type"))
+			.map(f -> f.value)
+			.findFirst().orElse(null);
+		if (ctype == null || !ctype.toLowerCase().startsWith("application/x-www-form-urlencoded")) {
+			return ohttpError(serverCtx, 415, "unsupported media type");
+		}
+
+		// 解析 body 为参数 Map
+		Map<String, String> params;
+		try {
+			params = UrlForm.parse(breq.getBody(), StandardCharsets.UTF_8);
+		} catch (Exception e) {
+			return ohttpError(serverCtx, 400, "invalid form body");
+		}
+
+		// 调用实际的 token 端点
+		ResponseEntity<OAuth2AccessToken> issued;
+		try {
+			issued = privacyTokenEndpoint.postAccessToken(null, params);
+		} catch (InvalidClientException |
+				 InvalidGrantException |
+				 InvalidRequestException e) {
+			return ohttpError(serverCtx, 400, e.getMessage());
+		} catch (Exception e) {
+			return ohttpError(serverCtx, 500, "internal error");
+		}
+
+		// 5) 封装 Binary HTTP 响应
+		BinaryHttpResponse bresp = new BinaryHttpResponse()
+			.setStatusCode(issued.getStatusCodeValue());
+		bresp.addHeaderField(new BinaryHttpMessage.Field("content-type","application/json;charset=utf-8"));
+		bresp.addHeaderField(new BinaryHttpMessage.Field("cache-control","no-store"));
+		bresp.addHeaderField(new BinaryHttpMessage.Field("pragma","no-cache"));
+		bresp.setBody(Jsons.writeBytes(issued.getBody()));  // 把token序列化为JSON
+
+		byte[] bhttpResp = bresp.serialize();
+		byte[] wireResp = serverCtx.seal(bhttpResp);
+
+		return ResponseEntity
+			.ok()
+			.header("Content-Type", "message/ohttp-res")
+			.body(wireResp);
+	}
+
+	private ResponseEntity<byte[]> ohttpError(OHttpRequest.Context ctx, int status, String msg) {
+		try {
+			BinaryHttpResponse err = new BinaryHttpResponse()
+				.setStatusCode(status)
+				.setReasonPhrase(msg)
+				.addHeaderField(new BinaryHttpMessage.Field("content-type", "application/json;charset=utf-8"));
+			err.setBody(("{\"error\":\"" + msg + "\"}").getBytes(StandardCharsets.UTF_8));
+			byte[] b = err.serialize();
+			return ResponseEntity.ok()
+				.header("Content-Type", "message/ohttp-res")
+				.body(ctx.seal(b));
+		} catch (Exception e) {
+			// 最坏情况直接500
+			return ResponseEntity.status(500).build();
+		}
 	}
 }

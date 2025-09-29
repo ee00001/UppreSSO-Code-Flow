@@ -62,4 +62,12 @@ public class HpkeKeyUtil {
         X25519PrivateKeyParameters priKey = new X25519PrivateKeyParameters(pri, 0);
         return new AsymmetricCipherKeyPair(pubKey, priKey);
     }
+
+	/**
+	 * 从 PEM 公钥文件读取裸公钥字节
+	 */
+	public static byte[] loadPublicKeyBytes(String pubPath) throws IOException {
+		byte[] pub = PemFileUtil.readPem(pubPath);
+		return pub;  // X25519 的公钥 32 字节原始值
+	}
 }

@@ -6,9 +6,11 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.Principal;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
+import org.mitre.openid.connect.util.FormUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,13 +56,11 @@ public class PrivacyTokenEndpoint {
 
 		logger.info("[PrivacyTokenEndpoint] POST /oauth/token invoked");
 
-
 		// 隐私模式：验证签名（留空实现）
 		if (!verifyPrivacySignature(parameters, parameters.get("client_assertion"))) {
 			throw new InvalidClientException("Invalid privacy signature");
 		}
 		logger.info("[PrivacyTokenEndpoint] privacy signature verified (stub)");
-
 
 
 		// 校验授权码
@@ -128,6 +128,11 @@ public class PrivacyTokenEndpoint {
 	private boolean verifyPrivacySignature(Map<String, String> params,
 										   String signature) {
 		// TODO：接入环签名 / Privacy-Pass
+		// 拷贝一份，去掉 client_assertion 再规范化
+		Map<String,String> copy = new HashMap<>(params);
+		copy.remove("client_assertion");
+		String canonical = FormUtil.canonicalForSigning(copy);
+
 		return true; // 目前直接放行
 	}
 
