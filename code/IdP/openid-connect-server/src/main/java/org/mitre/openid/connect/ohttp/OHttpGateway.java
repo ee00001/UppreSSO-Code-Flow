@@ -11,14 +11,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 @RestController
 @RequestMapping("/gateway")
 public class OHttpGateway {
-	private static final Logger logger = LogManager.getLogger(OHttpGateway.class);
-
 
 	private final AsymmetricCipherKeyPair serverKeyPair;  // 服务器HPKE密钥
 	private final OHttpHeaderKeyConfig keyConfig;         // OHTTP配置
@@ -30,10 +26,7 @@ public class OHttpGateway {
 		this.privacyTokenEndpoint = privacyTokenEndpoint;
 		// 加载服务器长期 HPKE 私钥
 
-		// 🔍 用 log4j 输出当前工作目录
-		logger.info("当前工作目录: {}", System.getProperty("user.dir"));
-
-		this.serverKeyPair = HpkeKeyUtil.loadKeyPairFromPem("../ohttp_pub.pem","../ohttp_priv.pem");
+		this.serverKeyPair = HpkeKeyUtil.loadKeyPairFromPem("./ohttp_pub.pem","./ohttp_priv.pem");
 		this.keyConfig = OHttpHeaderKeyConfig.defaultConfig();
 	}
 

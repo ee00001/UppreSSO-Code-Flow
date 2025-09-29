@@ -13,6 +13,6 @@ repositories {
 dependencies {
     implementation 'com.google.code.gson:gson:2.8.5'
     implementation 'com.auth0:java-jwt:3.8.1'
-    implementation 'org.bouncycastle:bcprov-jdk15on:1.68'
+    implementation("org.bouncycastle:bcprov-jdk15to18:1.82")
 
 }
