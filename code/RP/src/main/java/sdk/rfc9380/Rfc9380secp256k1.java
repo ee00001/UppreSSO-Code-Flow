@@ -41,16 +41,13 @@ public class Rfc9380secp256k1 {
     private static final BigInteger K1_2 = new BigInteger("534c328d23f234e6e2a413deca25caece4506144037c40314ecbd0b53d9dd262", 16);
     private static final BigInteger K1_3 = new BigInteger("8e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38daaaaa88c", 16);
 
-
     private static final BigInteger K2_0 = new BigInteger("d35771193d94918a9ca34ccbb7b640dd86cd409542f8487d9fe6b745781eb49b", 16);
     private static final BigInteger K2_1 = new BigInteger("edadc6f64383dc1df7c4b2d51b54225406d36b641f5e41bbc52a56612a8c6d14", 16);
-
 
     private static final BigInteger K3_0 = new BigInteger("4bda12f684bda12f684bda12f684bda12f684bda12f684bda12f684b8e38e23c", 16);
     private static final BigInteger K3_1 = new BigInteger("c75e0c32d5cb7c0fa9d0a54b12a0a6d5647ab046d686da6fdffc90fc201d71a3", 16);
     private static final BigInteger K3_2 = new BigInteger("29a6194691f91a73715209ef6512e576722830a201be2018a765e85a9ecee931", 16);
     private static final BigInteger K3_3 = new BigInteger("2f684bda12f684bda12f684bda12f684bda12f684bda12f684bda12f38e38d84", 16);
-
 
     private static final BigInteger K4_0 = new BigInteger("fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffff93b", 16);
     private static final BigInteger K4_1 = new BigInteger("7a06534bb8bdb49fd5e9e6632722c2989467c1bfc8e8d978dfb425d2685c2573", 16);
@@ -109,17 +106,6 @@ public class Rfc9380secp256k1 {
 
         ECFieldElement y = isQR ? y1 : y2;
 
-//        System.out.println("sqrt_ratio_3mod4 debug:");
-//        System.out.println("u=" + u.toBigInteger());
-//        System.out.println("v=" + v.toBigInteger());
-//        System.out.println("tv1=" + tv1.toBigInteger());
-//        System.out.println("tv2=" + tv2.toBigInteger());
-//        System.out.println("y1=" + y1.toBigInteger());
-//        System.out.println("y2=" + y2.toBigInteger());
-//        System.out.println("tv3=" + tv3.toBigInteger());
-//        System.out.println("isQR=" + isQR);
-//        System.out.println("y=" + y.toBigInteger());
-
         return new SqrtRatioResult(isQR, y);
     }
 
@@ -151,12 +137,12 @@ public class Rfc9380secp256k1 {
         // Step 4: x1 = inv0(x1)
         ECFieldElement x1Inv = x1.invert();
         if (x1.isZero()) {
-            x1Inv = Z.invert();
+            x1Inv = fe(CURVE_EPRIME, BigInteger.ZERO);;
         }
 
         ECFieldElement x2;
         // Step 5
-        if(!x1Inv.isZero()) {
+        if(!x1.isZero()) {
             // x2 = -B / A * (1 + x1Inv)
             x2 = B.negate().multiply(x1Inv.add(fe(CURVE_EPRIME, BigInteger.ONE))).multiply(A.invert());
         }else{
@@ -228,8 +214,6 @@ public class Rfc9380secp256k1 {
         ECFieldElement x2 = xP.square();
         ECFieldElement x3 = x2.multiply(xP);
 
-//        System.out.println("x2=" + x2.toBigInteger() + ", x3=" + x3.toBigInteger());
-
         // x_num = k13 * x'^3 + k12 * x'^2 + k11 * x' + k10
         ECFieldElement xNum = k13.multiply(x3).add(k12.multiply(x2)).add(k11.multiply(xP)).add(k10);
 
@@ -250,10 +234,6 @@ public class Rfc9380secp256k1 {
         ECFieldElement xMapped = xNum.multiply(xDen.invert());
 
         ECFieldElement yMapped = yP.multiply(yNum).multiply(yDen.invert());
-
-//        System.out.println("xNum=" + xNum.toBigInteger() + ", xDen=" + xDen.toBigInteger());
-//        System.out.println("yNum=" + yNum.toBigInteger() + ", yDen=" + yDen.toBigInteger());
-//        System.out.println("xMapped=" + xMapped.toBigInteger() + ", yMapped=" + yMapped.toBigInteger());
 
         BigInteger xMappedBI = xMapped.toBigInteger().mod(P);
         BigInteger yMappedBI = yMapped.toBigInteger().mod(P);
@@ -321,7 +301,7 @@ public class Rfc9380secp256k1 {
 
     // ---------- quick test main ----------
     public static void main(String[] args) {
-        byte[] msg = "http://localhost:8090".getBytes(StandardCharsets.US_ASCII);
+        byte[] msg = "abc".getBytes(StandardCharsets.US_ASCII);
         byte[] dst = "QUUX-V01-CS02-with-secp256k1_XMD:SHA-256_SSWU_RO_".getBytes(StandardCharsets.US_ASCII);
 
         HashToCurveResult result = hash_to_curve_debug(msg, dst);

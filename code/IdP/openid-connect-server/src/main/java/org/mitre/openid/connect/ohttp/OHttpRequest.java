@@ -5,6 +5,8 @@ import org.bouncycastle.crypto.hpke.*;
 import org.bouncycastle.crypto.params.AsymmetricKeyParameter;
 import org.bouncycastle.util.Arrays;
 
+import java.nio.charset.StandardCharsets;
+
 /**
  * OHTTP Request 封装 & 解析
  * 支持客户端封装请求、服务端解析请求
@@ -15,6 +17,8 @@ public class OHttpRequest {
     private final OHttpHeaderKeyConfig keyConfig;
 
     private static final byte[] AAD_EMPTY = new byte[0];
+	private static final byte[] REQ_LABEL =
+		"message/bhttp request".getBytes(StandardCharsets.US_ASCII);
 
     private OHttpRequest(byte[] encapsulatedKey, byte[] ciphertext, OHttpHeaderKeyConfig keyConfig) {
         this.encapsulatedKey = encapsulatedKey;
@@ -22,66 +26,68 @@ public class OHttpRequest {
         this.keyConfig = keyConfig;
     }
 
-    public static class Context {
-        private final HPKEContext context;
+	public static class Context {
+		private final HPKEContext context;
+		private final byte[] enc;
 
-        public Context(HPKEContext context) {
-            this.context = context;
-        }
+		public Context(HPKEContext context, byte[] enc) {
+			this.context = context;
+			this.enc = enc;
+		}
 
-        public byte[] open(byte[] ciphertext) throws Exception {
-            return context.open(AAD_EMPTY, ciphertext);
-        }
+		public HPKEContext getContext() { return context; }
+		public byte[] getEnc() { return enc; }
 
-        public byte[] seal(byte[] plaintext) throws Exception {
-            return context.seal(AAD_EMPTY, plaintext);
-        }
-    }
+
+		public byte[] open(byte[] ciphertext) throws Exception {
+			return context.open(AAD_EMPTY, ciphertext);
+		}
+
+		public byte[] seal(byte[] plaintext) throws Exception {
+			return context.seal(AAD_EMPTY, plaintext);
+		}
+	}
 
     // ========== 客户端逻辑 ==========
     /**
      * 创建客户端请求
      */
-    public static Pair<OHttpRequest, Context> createClientOHttpRequest(
-            byte[] plaintextPayload,
-            byte[] hpkePublicKey,
-            OHttpHeaderKeyConfig keyConfig,
-            String requestLabel
-    ) throws Exception {
-        if (plaintextPayload == null || plaintextPayload.length == 0) {
-            throw new IllegalArgumentException("Plaintext payload is empty");
-        }
-        if (hpkePublicKey == null || hpkePublicKey.length == 0) {
-            throw new IllegalArgumentException("HPKE public key is empty");
-        }
+	public static Pair<OHttpRequest, Context> createClientOHttpRequest(
+		byte[] plaintextPayload,
+		byte[] hpkePublicKey,
+		OHttpHeaderKeyConfig keyConfig
+	) throws Exception {
+		if (plaintextPayload == null || plaintextPayload.length == 0) {
+			throw new IllegalArgumentException("Plaintext payload is empty");
+		}
+		if (hpkePublicKey == null || hpkePublicKey.length == 0) {
+			throw new IllegalArgumentException("HPKE public key is empty");
+		}
 
-        keyConfig.validate();
+		keyConfig.validate();
 
-        // 创建 HPKE 实例
-        byte mode = 0x01; // 例如，0x01 代表 Base 模式
-        short kemId = (short) keyConfig.getKemId();
-        short kdfId = (short) keyConfig.getKdfId();
-        short aeadId = (short) keyConfig.getAeadId();
-        HPKE hpke = new HPKE(mode, kemId, kdfId, aeadId);
+		// 创建 HPKE 实例
+		byte mode = 0x01; // 例如，0x01 代表 Base 模式
+		short kemId = (short) keyConfig.getKemId();
+		short kdfId = (short) keyConfig.getKdfId();
+		short aeadId = (short) keyConfig.getAeadId();
+		HPKE hpke = new HPKE(mode, kemId, kdfId, aeadId);
 
-        // 从 bytes 构造公钥参数
-        AsymmetricKeyParameter pkR = hpke.deserializePublicKey(hpkePublicKey);
+		// 从 bytes 构造公钥参数
+		AsymmetricKeyParameter pkR = hpke.deserializePublicKey(hpkePublicKey);
 
-        // info = SerializeRecipientContextInfo(request_label)
-        byte[] info = keyConfig.serializeRecipientContextInfo(requestLabel);
+		// setup sender
+		HPKEContextWithEncapsulation sender = hpke.setupBaseS(pkR, REQ_LABEL);
 
-        // setup sender
-        HPKEContextWithEncapsulation sender = hpke.setupBaseS(pkR, info);
+		byte[] encapsulatedKey = sender.getEncapsulation();
 
-        byte[] encapsulatedKey = sender.getEncapsulation();
+		byte[] ciphertext = sender.seal(AAD_EMPTY, plaintextPayload);
 
-        byte[] ciphertext = sender.seal(AAD_EMPTY, plaintextPayload);
+		OHttpRequest request = new OHttpRequest(encapsulatedKey, ciphertext, keyConfig);
+		Context ctx = new Context(sender, encapsulatedKey);
 
-        OHttpRequest request = new OHttpRequest(encapsulatedKey, ciphertext, keyConfig);
-        Context ctx = new Context(sender);
-
-        return Pair.of(request, ctx);
-    }
+		return Pair.of(request, ctx);
+	}
 
     /**
      * Encapsulate and serialize into OHTTP wire format
@@ -118,40 +124,37 @@ public class OHttpRequest {
     /**
      * 服务端解密 OHTTP 请求
      */
-    public byte[] decryptWithServerKey(AsymmetricCipherKeyPair serverKeyPair, String requestLabel) throws Exception {
+	public byte[] decryptWithServerKey(AsymmetricCipherKeyPair serverKeyPair) throws Exception {
 
-        keyConfig.validate();
+		keyConfig.validate();
 
-        // 初始化 HPKE
-        byte mode = 0x01; // Base 模式
-        short kemId = (short) keyConfig.getKemId();
-        short kdfId = (short) keyConfig.getKdfId();
-        short aeadId = (short) keyConfig.getAeadId();
-        HPKE hpke = new HPKE(mode, kemId, kdfId, aeadId);
+		// 初始化 HPKE
+		byte mode = 0x01; // Base 模式
+		short kemId = (short) keyConfig.getKemId();
+		short kdfId = (short) keyConfig.getKdfId();
+		short aeadId = (short) keyConfig.getAeadId();
+		HPKE hpke = new HPKE(mode, kemId, kdfId, aeadId);
 
-        // 构造 info
-        byte[] info = keyConfig.serializeRecipientContextInfo(requestLabel);
+		// 服务端 setup receiver
+		HPKEContext receiver = hpke.setupBaseR(encapsulatedKey, serverKeyPair, REQ_LABEL);
 
-        // 服务端 setup receiver
-        HPKEContext receiver = hpke.setupBaseR(encapsulatedKey, serverKeyPair, info);
+		// 解密 ciphertext 得到原始请求
+		return receiver.open(AAD_EMPTY, ciphertext);
+	}
 
-        // 解密 ciphertext 得到原始请求
-        return receiver.open(ciphertext, null);
-    }
 
-    /**
+	/**
      * 服务端用私钥重建 HPKE Context (receiver)，返回 Context 以便加密响应
      */
-    public Context buildServerContext(AsymmetricCipherKeyPair serverKeyPair, String requestLabel) throws Exception {
+    public Context buildServerContext(AsymmetricCipherKeyPair serverKeyPair) throws Exception {
         keyConfig.validate();
 
         HPKE hpke = new HPKE((byte)0x01, (short) keyConfig.getKemId(),
                 (short) keyConfig.getKdfId(), (short) keyConfig.getAeadId());
 
-        byte[] info = keyConfig.serializeRecipientContextInfo(requestLabel);
-        HPKEContext receiver = hpke.setupBaseR(encapsulatedKey, serverKeyPair, info);
+        HPKEContext receiver = hpke.setupBaseR(encapsulatedKey, serverKeyPair, REQ_LABEL);
 
-        return new Context(receiver);
+        return new Context(receiver, encapsulatedKey);
     }
 
     // ========== Getter ==========

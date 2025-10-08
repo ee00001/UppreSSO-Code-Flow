@@ -1,4 +1,4 @@
-package org.mitre.openid.connect.ohttp;
+package sdk.ohttp;
 
 import org.bouncycastle.crypto.AsymmetricCipherKeyPair;
 import org.bouncycastle.crypto.params.X25519PublicKeyParameters;
@@ -57,7 +57,7 @@ public class TestOHttpLocal {
         byte[] encryptedResp = serverResp.serialize();
         System.out.println("[Server] OHTTP 加密响应长度: " + encryptedResp.length + " 字节");
 
-        // 6️ 客户端用之前的 context 解密响应
+        //  客户端解密响应
         OHttpResponse clientResp = OHttpResponse.createClientOHttpResponse(encryptedResp, clientCtx, keyConfig);
         String decryptedResponse = new String(clientResp.getPlaintext(), StandardCharsets.UTF_8);
         System.out.println("[Client] 解密得到HTTP响应:\n" + decryptedResponse);

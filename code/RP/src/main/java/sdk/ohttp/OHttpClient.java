@@ -1,17 +1,10 @@
 package sdk.ohttp;
 
-import org.bouncycastle.crypto.hpke.*;
-import org.bouncycastle.crypto.params.*;
-import org.bouncycastle.crypto.util.*;
 
-
-import javax.crypto.*;
-import javax.crypto.spec.*;
-import java.io.*;
-import java.net.*;
-import java.security.*;
-import java.util.*;
-
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
@@ -28,15 +21,13 @@ public final class OHttpClient {
      * 发送一个 OHTTP 请求
      * @param plaintextPayload 原始 bHTTP 格式的请求
      * @param relayUrl OHTTP Relay 的 URL
-     * @param requestLabel 用于 HPKE 的 info 标签
      */
-    public byte[] sendOHttpRequest(byte[] plaintextPayload, String relayUrl, String requestLabel) throws Exception {
+    public byte[] sendOHttpRequest(byte[] plaintextPayload, String relayUrl) throws Exception {
         // 构造 OHTTP Request
         Pair<OHttpRequest, OHttpRequest.Context> pair = OHttpRequest.createClientOHttpRequest(
                 plaintextPayload,
                 hpkePublicKey,
-                keyConfig,
-                requestLabel
+                keyConfig
         );
         OHttpRequest request = pair.getLeft();
         OHttpRequest.Context ctx = pair.getRight();  // 保存 context 用来解密 response
@@ -59,19 +50,18 @@ public final class OHttpClient {
             throw new IOException("OHTTP request failed, HTTP status: " + status);
         }
 
-        byte[] encryptedResponse;
+        //  读取 Encapsulated Response（wire = response_nonce || ct）
+        byte[] encResp;
         try (InputStream is = connection.getInputStream();
              ByteArrayOutputStream buffer = new ByteArrayOutputStream()) {
             byte[] tmp = new byte[4096];
             int read;
-            while ((read = is.read(tmp)) != -1) {
-                buffer.write(tmp, 0, read);
-            }
-            encryptedResponse = buffer.toByteArray();
+            while ((read = is.read(tmp)) != -1) buffer.write(tmp, 0, read);
+            encResp = buffer.toByteArray();
         }
 
-        // 用请求时的 HPKE context 解密响应
-        OHttpResponse resp = OHttpResponse.createClientOHttpResponse(encryptedResponse, ctx);
+
+        OHttpResponse resp = OHttpResponse.createClientOHttpResponse(encResp, ctx, keyConfig);
         return resp.getPlaintext();  // 返回解密后的明文响应
     }
 

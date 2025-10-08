@@ -21,15 +21,13 @@ public final class OHttpClient {
      * 发送一个 OHTTP 请求
      * @param plaintextPayload 原始 bHTTP 格式的请求
      * @param relayUrl OHTTP Relay 的 URL
-     * @param requestLabel 用于 HPKE 的 info 标签
      */
-    public byte[] sendOHttpRequest(byte[] plaintextPayload, String relayUrl, String requestLabel) throws Exception {
+    public byte[] sendOHttpRequest(byte[] plaintextPayload, String relayUrl) throws Exception {
         // 构造 OHTTP Request
         Pair<OHttpRequest, OHttpRequest.Context> pair = OHttpRequest.createClientOHttpRequest(
                 plaintextPayload,
                 hpkePublicKey,
-                keyConfig,
-                requestLabel
+                keyConfig
         );
         OHttpRequest request = pair.getLeft();
         OHttpRequest.Context ctx = pair.getRight();  // 保存 context 用来解密 response
@@ -64,7 +62,7 @@ public final class OHttpClient {
         }
 
         // 用请求时的 HPKE context 解密响应
-        OHttpResponse resp = OHttpResponse.createClientOHttpResponse(encryptedResponse, ctx);
+        OHttpResponse resp = OHttpResponse.createClientOHttpResponse(encryptedResponse, ctx, keyConfig);
         return resp.getPlaintext();  // 返回解密后的明文响应
     }
 

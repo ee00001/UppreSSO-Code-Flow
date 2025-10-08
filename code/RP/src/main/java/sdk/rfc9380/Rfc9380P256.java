@@ -17,8 +17,6 @@ public final class Rfc9380P256 {
     private static final int L_BYTES = 48;
 
     private static final BigInteger P = new BigInteger("FFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF", 16);
-    private static final BigInteger A = new BigInteger("FFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFC", 16);
-    private static final BigInteger B = new BigInteger("5AC635D8AA3A93E7B3EBBD55769886BC651D06B0CC53B0F63BCE3C3E27D2604B", 16);
     private static final BigInteger Z = P.subtract(BigInteger.valueOf(10));
 
     private static final ECParameterSpec PARAMS = ECNamedCurveTable.getParameterSpec("secp256r1");

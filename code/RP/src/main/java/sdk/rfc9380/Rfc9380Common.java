@@ -28,7 +28,7 @@ public class Rfc9380Common {
     /** expand_message_xmd (基于 SHA-256) */
     public static byte[] expand_message_xmd(byte[] msg, byte[] dstPrime, int len) {
         try {
-            if (dstPrime.length > 255 || len > 65535) {
+            if (dstPrime.length > 256 || len > 255 * 32) {
                 throw new IllegalArgumentException("dst/len too long");
             }
             MessageDigest md = MessageDigest.getInstance("SHA-256");

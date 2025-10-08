@@ -11,6 +11,7 @@ import sdk.bhttp.BinaryHttpRequest;
 import sdk.bhttp.BinaryHttpResponse;
 import sdk.ohttp.OHttpClient;
 import sdk.ohttp.OHttpHeaderKeyConfig;
+import sdk.ohttp.OHttpResponse;
 import sdk.ohttp.PemFileUtil;
 
 import java.io.*;
@@ -39,38 +40,14 @@ public class AuthorizationCodeExchange {
         // 通过 OHTTP 客户端发往 IdP 的 /gateway
         OHttpClient ohttpClient = new OHttpClient(OHttpHeaderKeyConfig.defaultConfig(), pubKey);
 
-        byte[] plaintextResp = ohttpClient.sendOHttpRequest(bhttp, RELAY_URL, "ohttp request");
+        byte[] plaintextResp = ohttpClient.sendOHttpRequest(bhttp, RELAY_URL);
+
 
         BinaryHttpResponse bresp = BinaryHttpResponse.deserialize(plaintextResp, 0);
 
         String json = new String(bresp.getBody(), StandardCharsets.UTF_8);
         return new Gson().fromJson(json, Map.class);
 
-//        String tokenEndpoint = idpDomain + "/openid-connect-server-webapp" + "/code4token";
-//
-//        // 使用 MultiValueMap
-//        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
-//        form.add("grant_type", "authorization_code");
-//        form.add("code", code);
-//        form.add("client_id", "anonymous");
-//        form.add("client_secret", "public");
-//        // PKCE verifer
-//        form.add("code_verifier", verifier);
-//
-//        //签名逻辑，暂时未签名，直接放行
-//        String formString = form.toString(); // 或自定义序列化
-//        String signed = AnonymousSignatureModule.sign(formString);
-
-//
-//        //原始 HTTP 连接
-//        HttpHeaders headers = new HttpHeaders();
-//        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-//
-//        HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(form, headers);
-//
-//        ResponseEntity<Map> resp = client.postForEntity(tokenEndpoint, entity, Map.class);
-//
-//        return (Map<String, String>) resp.getBody();
     }
 
     private static byte[] getOrFetchServerPubKey(String idpDomain) throws IOException {

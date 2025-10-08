@@ -15,7 +15,7 @@ const Z_BI = -11n; // RFC 推荐
 const C1 = (P_BI - 3n) / 4n;
 
 // 同源曲线参数 E': y^2 = x^3 + A'*x + B'
-const P_PRIME = new BN('FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F', 16); // 替换为实际 P
+const P_PRIME = new BN('FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F', 16);
 const A_PRIME = new BN('3f8731abdd661adca08a5558f0f5d272e953d363cb6f0e5d405447c01a444533', 16);
 const B_PRIME = new BN('1771', 16);
 
@@ -253,7 +253,7 @@ function concatBytes(...arrays) {
 }
 
 function i2osp(val, len) {
-	// val 是 Number（在本场景 len == 2），返回 Uint8Array 大端表示
+	// val 是 Number，返回 Uint8Array 大端表示
 	const out = new Uint8Array(len);
 	for (let i = len - 1; i >= 0; i--) {
 		out[i] = val & 0xff;

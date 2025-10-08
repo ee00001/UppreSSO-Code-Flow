@@ -1,3 +1,19 @@
+# IntelliJ / IDEA
+.idea/
+*.iml
+
+# Gradle & build
+.gradle/
+build/
+out/
+
+# Java
+*.class
+
+# OS
+.DS_Store
+Thumbs.db
+
 *.lock
 *.lock
 

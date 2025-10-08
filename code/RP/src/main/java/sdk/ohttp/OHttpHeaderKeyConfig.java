@@ -60,13 +60,6 @@ public class OHttpHeaderKeyConfig {
         return new OHttpHeaderKeyConfig(keyId, kemId, kdfId, aeadId);
     }
 
-    public byte[] serializeRecipientContextInfo(String requestLabel) {
-        byte[] labelBytes = requestLabel.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        ByteBuffer buf = ByteBuffer.allocate(1 + labelBytes.length);
-        buf.put(keyId);           // keyId 绑定到请求
-        buf.put(labelBytes);      // label
-        return buf.array();
-    }
 
     @Override
     public String toString() {

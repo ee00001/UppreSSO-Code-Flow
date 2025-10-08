@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 import java.util.Map;
 
 
@@ -43,7 +44,7 @@ public class OHttpGateway {
 	public ResponseEntity<byte[]> handleOhttpRequest(@RequestBody byte[] wire) throws Exception {
 		// 解密 OHTTP 请求
 		OHttpRequest ohttpReq = OHttpRequest.parseWire(wire);
-		OHttpRequest.Context serverCtx = ohttpReq.buildServerContext(serverKeyPair, "ohttp request");
+		OHttpRequest.Context serverCtx = ohttpReq.buildServerContext(serverKeyPair);
 
 		byte[] bhttpReqBytes;
 		try {
@@ -102,7 +103,13 @@ public class OHttpGateway {
 		bresp.setBody(Jsons.writeBytes(issued.getBody()));  // 把token序列化为JSON
 
 		byte[] bhttpResp = bresp.serialize();
-		byte[] wireResp = serverCtx.seal(bhttpResp);
+		SecureRandom rnd;
+		try {
+			rnd = SecureRandom.getInstanceStrong();
+		} catch (Exception ignore) {
+			rnd = new SecureRandom();
+		}
+		byte[] wireResp = OHttpResponse.createServerOHttpResponse(bhttpResp, serverCtx, keyConfig, rnd).serialize();
 
 		return ResponseEntity
 			.ok()
@@ -118,9 +125,12 @@ public class OHttpGateway {
 				.addHeaderField(new BinaryHttpMessage.Field("content-type", "application/json;charset=utf-8"));
 			err.setBody(("{\"error\":\"" + msg + "\"}").getBytes(StandardCharsets.UTF_8));
 			byte[] b = err.serialize();
+			SecureRandom rnd;
+			try { rnd = java.security.SecureRandom.getInstanceStrong(); } catch (Exception ignore) { rnd = new java.security.SecureRandom(); }
+			byte[] wire = OHttpResponse.createServerOHttpResponse(b, ctx, keyConfig, rnd).serialize();
 			return ResponseEntity.ok()
 				.header("Content-Type", "message/ohttp-res")
-				.body(ctx.seal(b));
+				.body(wire);
 		} catch (Exception e) {
 			// 最坏情况直接500
 			return ResponseEntity.status(500).build();
