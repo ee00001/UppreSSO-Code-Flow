@@ -56,7 +56,7 @@ public class OHttpGateway {
 		// 解析 Binary HTTP 请求
 		BinaryHttpRequest breq;
 		try {
-			breq = BinaryHttpRequest.deserialize(bhttpReqBytes, 0);
+			breq = BinaryHttpRequest.deserialize(bhttpReqBytes);
 		} catch (Exception e) {
 			return ohttpError(serverCtx, 400, "malformed bhttp request");
 		}

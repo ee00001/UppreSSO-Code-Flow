@@ -43,7 +43,7 @@ public class AuthorizationCodeExchange {
         byte[] plaintextResp = ohttpClient.sendOHttpRequest(bhttp, RELAY_URL);
 
 
-        BinaryHttpResponse bresp = BinaryHttpResponse.deserialize(plaintextResp, 0);
+        BinaryHttpResponse bresp = BinaryHttpResponse.deserialize(plaintextResp);
 
         String json = new String(bresp.getBody(), StandardCharsets.UTF_8);
         return new Gson().fromJson(json, Map.class);

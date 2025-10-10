@@ -81,7 +81,7 @@ public class BinaryHttpRequest extends BinaryHttpMessage<BinaryHttpRequest> {
         size += headerFields.encodedSize();
 
         // Body
-        size += body.length;
+        size += VarInt62.len(body.length) + body.length;
 
         // Padding
         size += numPaddingBytes;
@@ -107,7 +107,10 @@ public class BinaryHttpRequest extends BinaryHttpMessage<BinaryHttpRequest> {
         headerFields.encode(writer);
 
         // 写入 body
+        writer.writeVarInt62(body.length);
         writer.writeBytes(body);
+
+        //无尾端直接截断优化
 
         // 写入 padding
         writer.writePadding(numPaddingBytes);
@@ -116,7 +119,7 @@ public class BinaryHttpRequest extends BinaryHttpMessage<BinaryHttpRequest> {
     }
 
     // ===== 反序列化方法 =====
-    public static BinaryHttpRequest deserialize(byte[] data, int padding) throws IOException {
+    public static BinaryHttpRequest deserialize(byte[] data) throws IOException {
         ByteBuffer buffer = ByteBuffer.wrap(data);
         BinaryHttpRequest req = new BinaryHttpRequest();
 
@@ -132,19 +135,21 @@ public class BinaryHttpRequest extends BinaryHttpMessage<BinaryHttpRequest> {
         req.authority = readStringVarInt62(buffer);
         req.path = readStringVarInt62(buffer);
 
-        // 解析 header fields
+        // 头段
         long headersLength = readVarInt62(buffer);
         req.headerFields = readFields(buffer, (int) headersLength);
 
-        // body 部分
-        int bodyLen = buffer.remaining() - padding;
-        if (bodyLen > 0) {
-            byte[] bodyBytes = new byte[bodyLen];
-            buffer.get(bodyBytes);
-            req.body = bodyBytes;
-        }
+        // 内容段
+        long contentLen = readVarInt62(buffer);
+        if (contentLen > Integer.MAX_VALUE) throw new IOException("Content too large");
+        byte[] bodyBytes = new byte[(int) contentLen];
+        buffer.get(bodyBytes);
+        req.body = bodyBytes;
 
-        req.numPaddingBytes = padding;
+        // 剩余（若有）必须全部是 0x00（Padding）
+        while (buffer.hasRemaining()) {
+            if (buffer.get() != 0) throw new IOException("Non-zero padding");
+        }
         return req;
     }
 }

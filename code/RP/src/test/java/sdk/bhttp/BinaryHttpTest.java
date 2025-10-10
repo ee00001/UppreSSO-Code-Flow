@@ -22,7 +22,7 @@ public class BinaryHttpTest {
                 .addHeaderField(new BinaryHttpMessage.Field("Accept", "application/json"))
                 .addHeaderField(new BinaryHttpMessage.Field("User-Agent", "JavaClient"))
                 .setBody("Hello Request".getBytes(StandardCharsets.US_ASCII))
-                .setNumPaddingBytes(2);
+                .setNumPaddingBytes(10);
 
         // 序列化
         byte[] serialized = request.serialize();
@@ -33,7 +33,7 @@ public class BinaryHttpTest {
         System.out.println("Request serialization test passed.\n");
 
         // 反序列化
-        BinaryHttpRequest deserialized = BinaryHttpRequest.deserialize(serialized, request.getNumPaddingBytes());
+        BinaryHttpRequest deserialized = BinaryHttpRequest.deserialize(serialized);
         assert request.getMethod().equals(deserialized.getMethod());
         System.out.println("Request deserialization method test passed.\n");
         assert request.getScheme().equals(deserialized.getScheme());
@@ -57,7 +57,7 @@ public class BinaryHttpTest {
                 .setReasonPhrase("OK")
                 .addHeaderField(new BinaryHttpMessage.Field("Content-Type", "text/plain"))
                 .setBody("Hello Response".getBytes(StandardCharsets.US_ASCII))
-                .setNumPaddingBytes(3);
+                .setNumPaddingBytes(5);
 
         // 序列化
         byte[] serialized = response.serialize();
@@ -67,7 +67,7 @@ public class BinaryHttpTest {
         assert encodedSize == serialized.length : "encodedSize mismatch";
 
         // 反序列化
-        BinaryHttpResponse deserialized = BinaryHttpResponse.deserialize(serialized, response.getNumPaddingBytes());
+        BinaryHttpResponse deserialized = BinaryHttpResponse.deserialize(serialized);
         assert response.getStatusCode() == deserialized.getStatusCode();
         assert response.getReasonPhrase().equals(deserialized.getReasonPhrase());
         assert Arrays.equals(response.getBody(), deserialized.getBody());
