@@ -8,7 +8,6 @@ import java.security.Principal;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
 import org.mitre.openid.connect.util.FormUtil;
 import org.slf4j.Logger;

@@ -30,14 +30,6 @@ public class OHttpHeaderKeyConfig {
     public int getKdfId() { return kdfId; }
     public int getAeadId() { return aeadId; }
 
-	public byte[] encode(byte[] publicKey) {
-		byte[] header = serializePayloadHeader();
-		ByteBuffer buf = ByteBuffer.allocate(header.length + publicKey.length);
-		buf.put(header);
-		buf.put(publicKey);
-		return buf.array();
-	}
-
     // === 校验算法 ID 合法性 ===
     public void validate() {
         if (!HpkeKem.isSupported(kemId))
@@ -68,6 +60,7 @@ public class OHttpHeaderKeyConfig {
         return new OHttpHeaderKeyConfig(keyId, kemId, kdfId, aeadId);
     }
 
+
     @Override
     public String toString() {
         return "[key_id=" + (keyId & 0xFF) +
@@ -79,48 +72,12 @@ public class OHttpHeaderKeyConfig {
     public int getEncLength() {
         switch (kemId) {
             case HpkeKem.DHKEM_X25519_HKDF_SHA256: return 32;
-            // 如果以后支持更多 KEM，需要扩展
+// 暂未提供支持
+//            case HpkeKem.DHKEM_P256_HKDF_SHA256:   return 65;
+//            case HpkeKem.DHKEM_P384_HKDF_SHA384:   return 97;
+//            case HpkeKem.DHKEM_P521_HKDF_SHA512:   return 133;
             default: throw new IllegalArgumentException("Unknown KEM id: " + kemId);
         }
     }
-
 }
 
-// === 支持的算法枚举 ===
-class HpkeKem {
-    public static final int DHKEM_X25519_HKDF_SHA256 = 0x0020; // 32
-    public static boolean isSupported(int kemId) {
-        return kemId == DHKEM_X25519_HKDF_SHA256;
-    }
-    public static String toString(int kemId) {
-        switch (kemId) {
-            case DHKEM_X25519_HKDF_SHA256: return "X25519-SHA256";
-            default: return "Unknown(" + kemId + ")";
-        }
-    }
-}
-
-class HpkeKdf {
-    public static final int HKDF_SHA256 = 0x0001;
-    public static boolean isSupported(int id) { return id == HKDF_SHA256; }
-    public static String toString(int id) {
-        return id == HKDF_SHA256 ? "HKDF-SHA256" : "Unknown(" + id + ")";
-    }
-}
-
-class HpkeAead {
-    public static final int AES_128_GCM = 0x0001;
-    public static final int AES_256_GCM = 0x0002;
-    public static final int CHACHA20_POLY1305 = 0x0003;
-    public static boolean isSupported(int id) {
-        return id == AES_128_GCM || id == AES_256_GCM || id == CHACHA20_POLY1305;
-    }
-    public static String toString(int id) {
-        switch (id) {
-            case AES_128_GCM: return "AES-128-GCM";
-            case AES_256_GCM: return "AES-256-GCM";
-            case CHACHA20_POLY1305: return "CHACHA20-POLY1305";
-            default: return "Unknown(" + id + ")";
-        }
-    }
-}
