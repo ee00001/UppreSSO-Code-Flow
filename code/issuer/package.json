@@ -1,0 +1,65 @@
+{
+	"name": "privacypass-issuer",
+	"version": "0.1.0",
+	"type": "module",
+	"types": "dist/types/index.d.ts",
+	"main": "dist/worker.mjs",
+	"license": "Apache-2.0",
+	"private": true,
+	"scripts": {
+		"build": "tsc && node scripts/cli.js build && dts-bundle-generator --project tsconfig.types.json --inline-declare-global -o dist/types/index.d.ts src/index.ts",
+		"deploy:production": "wrangler deploy --no-bundle --env production",
+		"dev": "wrangler dev --env production --test-scheduled",
+		"format": "prettier --write  '*.{json,js}' 'scripts/*.{js,ts}' 'src/**/*.{js,ts}' 'test/**/*.{js,ts}'",
+		"lint": "eslint src && prettier --check '*.{json,js}' 'scripts/*.{js,ts}' 'src/**/*.{js,ts}' 'test/**/*.{js,ts}'",
+		"test:e2e": "tsc -b ./test/e2e && node --experimental-vm-modules --no-warnings dist/index.js",
+		"test": "npm run build && vitest --project tests --run"
+	},
+	"eslintConfig": {
+		"root": true,
+		"extends": [
+			"plugin:@typescript-eslint/recommended",
+			"prettier"
+		],
+		"parser": "@typescript-eslint/parser",
+		"plugins": [
+			"@typescript-eslint"
+		],
+		"rules": {
+			"@typescript-eslint/no-unused-vars": [
+				"warn",
+				{
+					"argsIgnorePattern": "^_"
+				}
+			]
+		}
+	},
+	"devDependencies": {
+		"@cloudflare/blindrsa-ts": "0.4.3",
+		"@cloudflare/vitest-pool-workers": "0.8.4",
+		"@cloudflare/workers-types": "4.20240605.0",
+		"@typescript-eslint/eslint-plugin": "6.21.0",
+		"@typescript-eslint/parser": "6.21.0",
+		"commander": "12.1.0",
+		"dotenv": "16.4.0",
+		"dts-bundle-generator": "9.5.1",
+		"esbuild": "0.25.0",
+		"eslint": "8.57.0",
+		"eslint-config-prettier": "9.1.0",
+		"eslint-config-typescript": "3.0.0",
+		"git-rev-sync": "3.0.2",
+		"prettier": "3.2.2",
+		"sade": "1.8.1",
+		"vitest": "3.0.8",
+		"wrangler": "3.60.3"
+	},
+	"dependencies": {
+		"@cloudflare/privacypass-ts": "0.7.1",
+		"@sentry/cli": "2.26.0",
+		"@sentry/types": "7.95.0",
+		"@tsndr/cloudflare-worker-jwt": "^3.2.0",
+		"promjs-plus": "0.5.4",
+		"toucan-js": "3.3.1",
+		"typescript": "5.3.3"
+	}
+}
