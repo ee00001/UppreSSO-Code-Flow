@@ -1,1 +1,0 @@
-document.getElementsByName("authorize")[0].click()
