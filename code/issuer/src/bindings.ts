@@ -38,6 +38,8 @@ export interface Bindings {
 	BACKUPS_CRON_STRING: string | null;
 	BACKUPS_SERVICE_ACCOUNT_KEY: string | null;
 	BACKUPS_BUCKET_NAME: string | null;
+
+	CHALLENGE_MODE?: string; // 新增
 }
 
 export const DEFAULT_MINIMUM_FRESHEST_KEYS = '2';

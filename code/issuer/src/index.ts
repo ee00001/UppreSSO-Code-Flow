@@ -41,6 +41,7 @@ import {
 	clearDirectoryCache,
 	getDirectoryCache,
 } from './cache';
+import { makeChallengeProvider } from './challenge';
 const { BlindRSAMode, Issuer, TokenRequest } = publicVerif;
 const { BatchedTokenRequest, BatchedTokenResponse, Issuer: BatchedTokensIssuer } = arbitraryBatched;
 
@@ -120,6 +121,13 @@ export const handleTokenRequest = async (ctx: Context, request: Request): Promis
 	const contentType = request.headers.get('content-type');
 	if (!contentType) {
 		throw new HeaderNotDefinedError('"Content-Type" must be defined');
+	}
+
+	// === 插入挑战验证（可插拔） ===
+	const provider = makeChallengeProvider(ctx.env);
+	const ch = await provider.validate(request, ctx);
+	if (!ch.ok) {
+		return new Response(ch.msg, { status: ch.code });
 	}
 
 	const domain = new URL(request.url).host;
