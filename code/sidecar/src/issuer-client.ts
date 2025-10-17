@@ -1,38 +1,59 @@
-import { MediaType, arbitraryBatched, publicVerif, TOKEN_TYPES, util } from "@cloudflare/privacypass-ts";
-const { BatchedTokenRequest, BatchedTokenResponse } = arbitraryBatched;
+import http from "node:http";
+import { URL } from "node:url";
+import { TokenStore } from "./token-store.js";
+import { getTokensOnce } from "./batch.js";
+import { SidecarConfig } from "./config.js";
+import { base64url } from "rfc4648";
 
-export interface IssuerDirectory {
-    "issuer-request-uri": string;   // e.g. "/token-request"
-    "token-keys": Array<{
-        "token-type": number;         // 应为 BlindRSA=2
-        "token-key": string;          // 公钥（base64url）
-        "not-before": number;         // 秒级
-    }>;
+const toB64u = (u: Uint8Array) => base64url.stringify(u);
+
+export function startServer(cfg: SidecarConfig, store: TokenStore) {
+    const server = http.createServer(async (req, res) => {
+        try {
+            if (!req.url) { res.statusCode = 400; return res.end("bad request"); }
+            const url = new URL(req.url, `http://localhost:${cfg.port}`);
+
+            // health
+            if (req.method === "GET" && url.pathname === "/health") {
+                const count = await store.count();
+                res.writeHead(200, { "content-type": "application/json" });
+                return res.end(JSON.stringify({ ok: true, tokens: count }));
+            }
+
+            // prefetch?count=N
+            if (req.method === "POST" && url.pathname === "/prefetch") {
+                const count = Number(url.searchParams.get("count") ?? cfg.prefetchBatchSize);
+                const tokens = await getTokensOnce(cfg.issuerDirectoryUrl, count, cfg.extraHeaders, cfg.issuerRequestUrl);
+                const b64u = tokens.map(toB64u);
+                await store.addMany(b64u);
+                res.writeHead(200, { "content-type": "application/json" });
+                return res.end(JSON.stringify({ ok: true, added: b64u.length, total: await store.count() }));
+            }
+
+            // take?count=N
+            if (req.method === "POST" && url.pathname === "/take") {
+                const count = Number(url.searchParams.get("count") ?? 1);
+                const tokens = await store.take(count);
+                res.writeHead(200, { "content-type": "application/json" });
+                return res.end(JSON.stringify({
+                    ok: true,
+                    items: tokens.map(t => ({ header: `PrivateToken token="${t}"` })),
+                    remaining: await store.count()
+                }));
+            }
+
+            res.statusCode = 404;
+            res.end("not found");
+        } catch (err: any) {
+            res.statusCode = 500;
+            res.end(`error: ${err?.message ?? String(err)}`);
+        }
+    });
+
+    server.listen(cfg.port, () => {
+        console.log(`[sidecar] listening on :${cfg.port}`);
+        console.log(`[sidecar] issuer directory: ${cfg.issuerDirectoryUrl}`);
+    });
+
+    return server;
 }
-
-export interface MintResult {
-    minted: { tokenB64: string; exp?: number }[];
-}
-
-/** 拉取目录 */
-export async function fetchDirectory(issuerDirectoryUrl: string): Promise<IssuerDirectory> {
-    const res = await fetch(issuerDirectoryUrl, { method: "GET", headers: { "accept": MediaType.PRIVATE_TOKEN_ISSUER_DIRECTORY } });
-    if (!res.ok) throw new Error(`directory HTTP ${res.status}`);
-    const ctype = res.headers.get("content-type") || "";
-    if (!ctype.startsWith(MediaType.PRIVATE_TOKEN_ISSUER_DIRECTORY)) {
-        throw new Error(`unexpected content-type: ${ctype}`);
-    }
-    return res.json();
-}
-
-/** 从目录里挑最新 key（挑第一个） */
-export function pickFreshestKey(doc: IssuerDirectory) {
-    if (!doc["token-keys"]?.length) throw new Error("no token-keys");
-    // 简单取第一个；
-    const k = doc["token-keys"][0];
-    if (k["token-type"] !== TOKEN_TYPES.BLIND_RSA.value) {
-        throw new Error("issuer key is not BlindRSA");
-    }
-    return k;
-}
-

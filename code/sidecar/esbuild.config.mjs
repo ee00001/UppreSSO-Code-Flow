@@ -4,11 +4,19 @@ const isProd = process.env.NODE_ENV === "production";
 
 await build({
     entryPoints: ["src/index.ts"],
+    outfile: "dist/sidecar.cjs",
     bundle: true,
     platform: "node",
-    target: ["node18"],
-    outfile: "dist/sidecar.cjs",
     format: "cjs",
+    target: ["node18"],
+
+    external: [
+        "@cloudflare/blindrsa-ts",
+    ],
+
+    keepNames: true,
+    preserveSymlinks: false,
+
     sourcemap: !isProd,
     minify: isProd,
     banner: { js: "#!/usr/bin/env node" },

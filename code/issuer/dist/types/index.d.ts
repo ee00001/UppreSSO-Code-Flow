@@ -56,6 +56,7 @@ export interface Bindings {
 	BACKUPS_CRON_STRING: string | null;
 	BACKUPS_SERVICE_ACCOUNT_KEY: string | null;
 	BACKUPS_BUCKET_NAME: string | null;
+	CHALLENGE_MODE?: string;
 }
 export type NonNullableFields<T> = {
 	[P in keyof T]: T[P] extends infer U | null ? U : T[P];

@@ -7,6 +7,7 @@
 	"license": "Apache-2.0",
 	"private": true,
 	"scripts": {
+		"postinstall": "patch-package",
 		"build": "tsc && node scripts/cli.js build && dts-bundle-generator --project tsconfig.types.json --inline-declare-global -o dist/types/index.d.ts src/index.ts",
 		"deploy:production": "wrangler deploy --no-bundle --env production",
 		"dev": "wrangler dev --env production --test-scheduled",
@@ -51,10 +52,11 @@
 		"prettier": "3.2.2",
 		"sade": "1.8.1",
 		"vitest": "3.0.8",
-		"wrangler": "3.60.3"
+		"wrangler": "3.60.3",
+		"patch-package": "^8.0.1"
 	},
 	"dependencies": {
-		"@cloudflare/privacypass-ts": "0.7.1",
+		"@cloudflare/privacypass-ts": "0.7.2",
 		"@sentry/cli": "2.26.0",
 		"@sentry/types": "7.95.0",
 		"@tsndr/cloudflare-worker-jwt": "^3.2.0",

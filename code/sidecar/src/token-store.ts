@@ -1,39 +1,50 @@
-import fs from "node:fs";
+import { promises as fs } from "node:fs";
+import { base64url } from "rfc4648";
 
-export interface StoredToken {
-    tokenB64: string;   // 以 base64url 或 base64 存（按解析结果决定）
-    exp?: number;       // 可选过期秒级时间戳
+export interface TokenStoreShape {
+    tokens: string[]; // base64url-encoded Token bytes
 }
 
 export class TokenStore {
-    constructor(private file: string) {}
+    constructor(private filePath: string) {}
 
-    private readAll(): StoredToken[] {
-        try { return JSON.parse(fs.readFileSync(this.file, "utf8")); }
-        catch { return []; }
-    }
-    private writeAll(list: StoredToken[]) {
-        fs.writeFileSync(this.file, JSON.stringify(list), "utf8");
-    }
-
-    countValid(): number {
-        const now = Math.floor(Date.now()/1000);
-        return this.readAll().filter(t => !t.exp || t.exp > now).length;
+    async load(): Promise<TokenStoreShape> {
+        try {
+            const s = await fs.readFile(this.filePath, "utf8");
+            const obj = JSON.parse(s);
+            if (!obj.tokens || !Array.isArray(obj.tokens)) return { tokens: [] };
+            return { tokens: obj.tokens as string[] };
+        } catch {
+            return { tokens: [] };
+        }
     }
 
-    pushMany(tokens: StoredToken[]) {
-        const all = this.readAll();
-        all.push(...tokens);
-        this.writeAll(all);
+    async save(data: TokenStoreShape): Promise<void> {
+        await fs.writeFile(this.filePath, JSON.stringify(data, null, 2), "utf8");
     }
 
-    popOne(): StoredToken | null {
-        const all = this.readAll();
-        const now = Math.floor(Date.now()/1000);
-        const idx = all.findIndex(t => !t.exp || t.exp > now);
-        if (idx < 0) return null;
-        const [taken] = all.splice(idx, 1);
-        this.writeAll(all);
-        return taken;
+    async addMany(b64uTokens: string[]): Promise<void> {
+        const cur = await this.load();
+        cur.tokens.push(...b64uTokens);
+        await this.save(cur);
+    }
+
+    async take(n: number): Promise<string[]> {
+        const cur = await this.load();
+        const out = cur.tokens.splice(0, Math.max(0, Math.min(n, cur.tokens.length)));
+        await this.save(cur);
+        return out;
+    }
+
+    async count(): Promise<number> {
+        const cur = await this.load();
+        return cur.tokens.length;
+    }
+
+    static toB64u(u8: Uint8Array): string {
+        return base64url.stringify(u8, { pad: false });
+    }
+    static fromB64u(s: string): Uint8Array {
+        return new Uint8Array(base64url.parse(s));
     }
 }

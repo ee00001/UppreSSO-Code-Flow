@@ -4,19 +4,22 @@
   "description": "Privacy Pass sidecar (TypeScript): batch mint + cache + HTTP API",
   "main": "index.js",
   "scripts": {
-    "build": "NODE_ENV=production node esbuild.config.mjs",
-    "dev": "NODE_ENV=development node esbuild.config.mjs && node dist/sidecar.cjs",
-    "pkg": "npm run build && pkg dist/sidecar.cjs --targets node18-win-x64,node18-linux-x64,node18-macos-x64 --out-path bin"
+    "postinstall": "patch-package",
+    "build": "cross-env NODE_ENV=production node esbuild.config.mjs",
+    "dev": "cross-env NODE_ENV=development node esbuild.config.mjs && node dist/index.cjs",
+    "pkg": "npm run build && pkg dist/index.cjs --targets node18-win-x64,node18-linux-x64,node18-macos-x64 --out-path bin"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@cloudflare/privacypass-ts": "^0.7.2"
+    "@cloudflare/privacypass-ts": "0.7.2"
   },
   "devDependencies": {
     "@types/node": "^24.7.2",
+    "cross-env": "^10.1.0",
     "esbuild": "^0.25.10",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "patch-package": "^8.0.1"
   }
 }
