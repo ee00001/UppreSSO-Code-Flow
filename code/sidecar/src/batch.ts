@@ -76,22 +76,6 @@ export async function batchedIssueAndFinalize(
 
     const body = batched.serialize();
 
-    // // === 自检：反解 batched，并打印关键信息 ===
-    // let parsedReq;
-    // try {
-    //     parsedReq = arbitraryBatched.BatchedTokenRequest.deserialize(body);
-    //     console.log('[batched] entries    =', parsedReq.tokenRequests.length);
-    //
-    //     parsedReq.tokenRequests.forEach((r, i) => {
-    //         console.log(`[batched][${i}] tokenType   =`, r.tokenType);            // 期望 2
-    //         console.log(`[batched][${i}] keyId       =`, r.truncatedTokenKeyId);
-    //         console.log(`[batched][${i}] blind.len   =`, r.blindMsg?.length ?? -1);
-    //         console.log(`[batched][${i}] blind.head  =`, headHex(r.blindMsg ?? new Uint8Array(0), 24));
-    //     });
-    // } catch (e) {
-    //     console.log('[batched] deserialize ERROR:', e);
-    // }
-
     const headers = new Headers({
         "content-type": MediaType.ARBITRARY_BATCHED_TOKEN_REQUEST,
         "accept": MediaType.ARBITRARY_BATCHED_TOKEN_RESPONSE,

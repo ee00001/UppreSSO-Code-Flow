@@ -74,6 +74,13 @@ public class OHttpGateway {
 			return ohttpError(serverCtx, 415, "unsupported media type");
 		}
 
+		// 提取 Authorization
+		String authorization = breq.getHeaderFields().stream()
+			.filter(f -> f.name.equalsIgnoreCase("authorization"))
+			.map(f -> f.value)
+			.findFirst()
+			.orElse(null);
+
 		// 解析 body 为参数 Map
 		Map<String, String> params;
 		try {
@@ -85,7 +92,7 @@ public class OHttpGateway {
 		// 调用实际的 token 端点
 		ResponseEntity<OAuth2AccessToken> issued;
 		try {
-			issued = privacyTokenEndpoint.postAccessToken(null, params);
+			issued = privacyTokenEndpoint.postAccessToken(null, params, authorization);
 		} catch (InvalidClientException |
 				 InvalidGrantException |
 				 InvalidRequestException e) {

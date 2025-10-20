@@ -3,6 +3,7 @@ import { URL } from "node:url";
 import { TokenStore } from "./token-store.js";
 import { getTokensOnce } from "./batch.js";
 import { SidecarConfig } from "./config.js";
+import { handleVerify } from "./verify.js";
 import { base64url } from "rfc4648";
 
 const toB64u = (u: Uint8Array) => base64url.stringify(u);
@@ -40,6 +41,10 @@ export function startServer(cfg: SidecarConfig, store: TokenStore) {
                     items: tokens.map(t => ({ header: `PrivateToken token="${t}"` })),
                     remaining: await store.count()
                 }));
+            }
+
+            if (req.method === "POST" && url.pathname === "/verify") {
+                return handleVerify(req, res, cfg); // 核心逻辑在 verify.ts
             }
 
             res.statusCode = 404;

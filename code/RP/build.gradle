@@ -1,3 +1,4 @@
+
 buildscript {
     repositories {
         maven { url 'https://maven.aliyun.com/repository/public' }
@@ -15,7 +16,8 @@ apply plugin: 'idea'
 apply plugin: 'org.springframework.boot'
 apply plugin: 'io.spring.dependency-management'
 
-bootJar {
+
+    bootJar {
     baseName = 'gs-spring-boot'
     version =  '0.1.0'
 }
@@ -47,4 +49,135 @@ dependencies {
 
 test {
     useJUnitPlatform()
+}
+
+import java.net.*
+import java.nio.file.*
+
+/** === 可调参数 === **/
+def SIDECAR_PORT = System.getenv('SIDECAR_PORT') ?: '9797'
+def ROOT_DIR       = rootProject.projectDir
+def SIDECAR_DIR    = new File(ROOT_DIR, "../sidecar")
+def SIDECAR_SCRIPT = new File(SIDECAR_DIR, "dist/sidecar.cjs").absolutePath
+// 如需指定 node 绝对路径，改这里
+def NODE_CMD = 'node'
+def HEALTH_URL = "http://127.0.0.1:${SIDECAR_PORT}/health"
+
+/** === 日志与 PID 文件 === **/
+def OUT_LOG = file("$buildDir/sidecar.out.log")
+def ERR_LOG = file("$buildDir/sidecar.err.log")
+def PID_FILE = file("$buildDir/sidecar.pid")
+def STARTED_FLAG = file("$buildDir/sidecar.started")
+
+/** 简单 HTTP 健康检查：返回 200 视为就绪 **/
+def waitForHealthy = { String url, int timeoutSec ->
+    long deadline = System.currentTimeMillis() + timeoutSec * 1000L
+    while (System.currentTimeMillis() < deadline) {
+        try {
+            HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection()
+            c.setConnectTimeout(800); c.setReadTimeout(800); c.setRequestMethod("GET")
+            if (c.getResponseCode() == 200) return true
+        } catch (Throwable ignore) {}
+        Thread.sleep(200)
+    }
+    return false
+}
+
+task sidecarStart {
+    group = "application"
+    description = "Start sidecar.cjs in background and wait until /health is 200"
+    doLast {
+
+        // sidecar 已拉起，跳过拉起
+        if (waitForHealthy(HEALTH_URL, 2)) {
+            PID_FILE.delete()
+            STARTED_FLAG.delete()
+            println "[gradle] sidecar already running at ${HEALTH_URL}, skip starting."
+            return
+        }
+
+        if (!file(SIDECAR_SCRIPT).exists()) {
+            throw new GradleException("sidecar 脚本不存在: ${SIDECAR_SCRIPT}")
+        }
+        OUT_LOG.parentFile.mkdirs()
+        ERR_LOG.parentFile.mkdirs()
+
+        def pb = new ProcessBuilder(NODE_CMD, SIDECAR_SCRIPT)
+        pb.directory(SIDECAR_DIR)
+
+        def env = pb.environment()
+        env.put("SIDECAR_PORT", SIDECAR_PORT)
+
+        pb.redirectOutput(ProcessBuilder.Redirect.appendTo(OUT_LOG))
+        pb.redirectError(ProcessBuilder.Redirect.appendTo(ERR_LOG))
+        def p = pb.start()
+
+        // 记录 PID（JDK9+ 可用；JDK8 取不到则写空）
+        try {
+            def pid = p.class.getMethod("pid").invoke(p)
+            PID_FILE.text = pid.toString()
+        } catch (Throwable t) {
+            PID_FILE.text = ""
+        }
+
+        if (!waitForHealthy(HEALTH_URL, 30)) {
+            throw new GradleException("sidecar 未在 30s 内通过健康检查: ${HEALTH_URL}\n请查看 ${ERR_LOG}")
+        }
+        println "[gradle] sidecar started on :${SIDECAR_PORT} (pid: ${PID_FILE.text?.trim()})"
+        STARTED_FLAG.text = "started"
+    }
+}
+
+task sidecarStop {
+    group = "application"
+    description = "Stop sidecar process by PID or fallback"
+
+    onlyIf {
+        STARTED_FLAG.exists() && PID_FILE.exists() && PID_FILE.text.trim()
+    }
+
+    doLast {
+        if (!PID_FILE.exists()) {
+            println "[gradle] skip stopping sidecar: no PID file (not started by Gradle)"
+            return
+        }
+        def pid = PID_FILE.text.trim()
+        if (!pid) {
+            println "[gradle] skip stopping sidecar: empty PID (likely not started by Gradle)"
+            PID_FILE.delete()
+            return
+        }
+
+        try {
+            if (org.gradle.internal.os.OperatingSystem.current().isWindows()) {
+
+                exec {
+                    commandLine "cmd", "/c", "taskkill /PID ${pid} /T /F"
+                    ignoreExitValue true
+                }
+            } else {
+
+                    exec {
+                        commandLine "bash", "-lc", "kill -TERM ${pid} || true"
+                        ignoreExitValue true
+                    }
+            }
+        } catch (Exception ignore) {}
+        finally {
+            PID_FILE.delete()
+        }
+        println "[gradle] sidecar stopped"
+    }
+}
+
+// 与 Spring Boot 的 bootRun 关联（存在才挂钩，避免多模块误伤）
+tasks.matching { it.name == 'bootRun' }.all { t ->
+    t.dependsOn(sidecarStart)
+    t.finalizedBy(sidecarStop)
+
+    t.ignoreExitValue = true
+
+    t.standardInput = System.in
+
+    t.environment "SIDECAR_BASE", "http://127.0.0.1:${SIDECAR_PORT}"
 }

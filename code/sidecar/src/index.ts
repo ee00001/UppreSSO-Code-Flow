@@ -1,6 +1,6 @@
 import { loadConfig } from "./config.js";
 import { TokenStore } from "./token-store.js";
-import { startServer } from "./issuer-client.js";
+import { startServer } from "./client";
 
 async function main() {
     const cfg = loadConfig();

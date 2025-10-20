@@ -1,13 +1,16 @@
 package org.mitre.openid.connect.privacy;
 
-import java.io.Serializable;
+import java.io.*;
+import java.net.HttpURLConnection;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.Principal;
+import java.net.URL;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.mitre.openid.connect.util.FormUtil;
 import org.slf4j.Logger;
@@ -23,10 +26,9 @@ import org.springframework.security.oauth2.provider.endpoint.PkceConstants;
 import org.springframework.security.oauth2.provider.token.AuthorizationServerTokenServices;
 import org.springframework.util.StringUtils;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import javax.servlet.http.HttpServletRequest;
 
 
 @RestController
@@ -41,6 +43,10 @@ public class PrivacyTokenEndpoint {
 	@Autowired
 	private AuthorizationServerTokenServices defaultOAuth2ProviderTokenService;
 
+	// 默认本机 sidecar:9797
+	private final String verifyUrl = System.getenv().getOrDefault(
+		"PP_VERIFY_URL", "http://127.0.0.1:9797/verify");
+
 	@Autowired
 	public PrivacyTokenEndpoint(AuthorizationCodeServices authorizationCodeServices,
 								AuthorizationServerTokenServices tokenServices) {
@@ -51,16 +57,19 @@ public class PrivacyTokenEndpoint {
 	@RequestMapping(method = RequestMethod.POST)
 	public ResponseEntity<OAuth2AccessToken> postAccessToken(
 		Principal principal,
-		@RequestParam Map<String, String> parameters) throws HttpRequestMethodNotSupportedException {
+		@RequestParam Map<String, String> parameters,
+		@RequestHeader(value = "Authorization", required = false) String authorization
+	) throws HttpRequestMethodNotSupportedException {
 
 		logger.info("[PrivacyTokenEndpoint] POST /oauth/token invoked");
+
+//		verifyPrivateTokenWithSidecar(authorization);
 
 		// 隐私模式：验证签名（留空实现）
 		if (!verifyPrivacySignature(parameters, parameters.get("client_assertion"))) {
 			throw new InvalidClientException("Invalid privacy signature");
 		}
 		logger.info("[PrivacyTokenEndpoint] privacy signature verified (stub)");
-
 
 		// 校验授权码
 		String code = parameters.get("code");
@@ -122,6 +131,57 @@ public class PrivacyTokenEndpoint {
 
 		logger.info("[PrivacyTokenEndpoint] token generated = {}", token);
 		return new ResponseEntity<>(token, HttpStatus.OK);
+	}
+
+	private void verifyPrivateTokenWithSidecar(String authorization) {
+		if (authorization == null || !authorization.regionMatches(true, 0, "PrivateToken ", 0, "PrivateToken ".length())) {
+			throw new InvalidClientException("Missing PrivateToken");
+		}
+		HttpURLConnection conn = null;
+		try {
+			URL url = new URL(verifyUrl);
+			conn = (HttpURLConnection) url.openConnection();
+			conn.setConnectTimeout(1500);
+			conn.setReadTimeout(2000);
+			conn.setRequestMethod("POST");
+			conn.setDoOutput(true);
+			conn.setRequestProperty("Authorization", authorization);
+			// 不发送 body，告知 Content-Length: 0
+			conn.setFixedLengthStreamingMode(0);
+			conn.connect();
+
+			int status = conn.getResponseCode();
+			if (status == 200) {
+				return; // OK
+			} else if (status == 409) {
+				String detail = readBodySilently(conn);
+				throw new InvalidGrantException("PrivateToken replayed" + (detail.isEmpty() ? "" : ": " + detail));
+			} else if (status == 401) {
+				String detail = readBodySilently(conn);
+				throw new InvalidClientException("Invalid PrivateToken" + (detail.isEmpty() ? "" : ": " + detail));
+			} else {
+				String detail = readBodySilently(conn);
+				throw new InvalidClientException("PrivateToken verify failed: HTTP " + status +
+					(detail.isEmpty() ? "" : " - " + detail));
+			}
+		} catch (InvalidClientException | InvalidGrantException e) {
+			throw e;
+		} catch (Exception e) {
+			logger.warn("PrivateToken verifier error", e);
+			throw new InvalidClientException("PrivateToken verifier error: " + e.getMessage());
+		} finally {
+			if (conn != null) conn.disconnect();
+		}
+	}
+
+	private String readBodySilently(HttpURLConnection conn) {
+		try (InputStream is = (conn.getErrorStream() != null) ? conn.getErrorStream() : conn.getInputStream();
+			 BufferedReader br = (is == null) ? null : new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+			if (br == null) return "";
+			return br.lines().collect(Collectors.joining("\n"));
+		} catch (IOException ignore) {
+			return "";
+		}
 	}
 
 	private boolean verifyPrivacySignature(Map<String, String> params,
