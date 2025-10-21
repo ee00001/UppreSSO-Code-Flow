@@ -6,7 +6,6 @@ import org.mitre.openid.connect.bhttp.BinaryHttpRequest;
 import org.mitre.openid.connect.bhttp.BinaryHttpResponse;
 import org.mitre.openid.connect.privacy.PrivacyTokenEndpoint;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.common.OAuth2AccessToken;
 import org.springframework.security.oauth2.common.exceptions.InvalidClientException;
@@ -92,7 +91,7 @@ public class OHttpGateway {
 		// 调用实际的 token 端点
 		ResponseEntity<OAuth2AccessToken> issued;
 		try {
-			issued = privacyTokenEndpoint.postAccessToken(null, params, authorization);
+			issued = privacyTokenEndpoint.postAccessToken(params, authorization);
 		} catch (InvalidClientException |
 				 InvalidGrantException |
 				 InvalidRequestException e) {

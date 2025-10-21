@@ -5,7 +5,6 @@ import java.net.HttpURLConnection;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.security.Principal;
 import java.net.URL;
 import java.util.Base64;
 import java.util.HashMap;
@@ -28,8 +27,6 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.annotation.*;
 
-import javax.servlet.http.HttpServletRequest;
-
 
 @RestController
 @RequestMapping("/code4token")
@@ -39,9 +36,6 @@ public class PrivacyTokenEndpoint {
 
 	private final AuthorizationCodeServices authorizationCodeServices;
 	private final AuthorizationServerTokenServices tokenServices;
-
-	@Autowired
-	private AuthorizationServerTokenServices defaultOAuth2ProviderTokenService;
 
 	// 默认本机 sidecar:9797
 	private final String verifyUrl = System.getenv().getOrDefault(
@@ -56,20 +50,20 @@ public class PrivacyTokenEndpoint {
 
 	@RequestMapping(method = RequestMethod.POST)
 	public ResponseEntity<OAuth2AccessToken> postAccessToken(
-		Principal principal,
 		@RequestParam Map<String, String> parameters,
 		@RequestHeader(value = "Authorization", required = false) String authorization
 	) throws HttpRequestMethodNotSupportedException {
 
 		logger.info("[PrivacyTokenEndpoint] POST /oauth/token invoked");
 
-//		verifyPrivateTokenWithSidecar(authorization);
+		verifyPrivateTokenWithSidecar(authorization);
+		logger.info("[PrivacyTokenEndpoint] privacy pass token verified.");
 
 		// 隐私模式：验证签名（留空实现）
 		if (!verifyPrivacySignature(parameters, parameters.get("client_assertion"))) {
 			throw new InvalidClientException("Invalid privacy signature");
 		}
-		logger.info("[PrivacyTokenEndpoint] privacy signature verified (stub)");
+		logger.info("[PrivacyTokenEndpoint] ring signature verified");
 
 		// 校验授权码
 		String code = parameters.get("code");
@@ -133,6 +127,7 @@ public class PrivacyTokenEndpoint {
 		return new ResponseEntity<>(token, HttpStatus.OK);
 	}
 
+	// privacy pass blind rsa token verify, 需要拉起 sidecar
 	private void verifyPrivateTokenWithSidecar(String authorization) {
 		if (authorization == null || !authorization.regionMatches(true, 0, "PrivateToken ", 0, "PrivateToken ".length())) {
 			throw new InvalidClientException("Missing PrivateToken");
@@ -186,7 +181,7 @@ public class PrivacyTokenEndpoint {
 
 	private boolean verifyPrivacySignature(Map<String, String> params,
 										   String signature) {
-		// TODO：接入环签名 / Privacy-Pass
+		// TODO：接入环签名
 		// 拷贝一份，去掉 client_assertion 再规范化
 		Map<String,String> copy = new HashMap<>(params);
 		copy.remove("client_assertion");

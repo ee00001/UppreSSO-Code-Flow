@@ -30,23 +30,23 @@ public class AuthorizationCodeExchange {
     public static Map<String, String> exchangeCodeForToken(
             String code, String idpDomain, String verifier) throws Exception {
 
+        // 获取 PrivateToken 头
+        String privateTokenHeader = SidecarClient.acquirePrivateTokenHeader();
+
         //  拉取/缓存公钥
         KeyConfigResult kcr= getOrFetchServerPubKey(idpDomain);
 
         // 构造 bHTTP 请求
-        byte[] bhttp = buildBHttpRequest(code, verifier, idpDomain);
+        byte[] bhttp = buildBHttpRequest(code, verifier, idpDomain, privateTokenHeader);
 
         // 通过 OHTTP 客户端发往 IdP 的 /gateway
         OHttpClient ohttpClient = new OHttpClient(kcr.header, kcr.publicKey);
-
         byte[] plaintextResp = ohttpClient.sendOHttpRequest(bhttp, RELAY_URL);
-
 
         BinaryHttpResponse bresp = BinaryHttpResponse.deserialize(plaintextResp);
 
         String json = new String(bresp.getBody(), StandardCharsets.UTF_8);
         return new Gson().fromJson(json, Map.class);
-
     }
 
     private static KeyConfigResult getOrFetchServerPubKey(String idpDomain) throws IOException {
@@ -148,7 +148,7 @@ public class AuthorizationCodeExchange {
         throw new IOException("no compatible ohttp key config found");
     }
 
-    private static byte[] buildBHttpRequest(String code, String verifier, String idpBase) throws IOException {
+    private static byte[] buildBHttpRequest(String code, String verifier, String idpBase, String authorizationHeader) throws IOException {
         // 提取域名和协议
         URL idpUrl = new URL(idpBase);
         String scheme = idpUrl.getProtocol();
@@ -179,6 +179,11 @@ public class AuthorizationCodeExchange {
                 .setPath("/openid-connect-server-webapp/code4token");  // token endpoint 路径
 
         bReq.addHeaderField(new BinaryHttpMessage.Field("content-type", "application/x-www-form-urlencoded"));
+
+        if (authorizationHeader != null && !authorizationHeader.trim().isEmpty()) {
+            bReq.addHeaderField(new BinaryHttpMessage.Field("authorization", authorizationHeader));
+        }
+
         bReq.setBody(body);
 
         return bReq.serialize();
