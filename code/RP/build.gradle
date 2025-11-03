@@ -53,6 +53,7 @@ test {
 
 import java.net.*
 import java.nio.file.*
+import java.nio.charset.Charset
 
 /** === 可调参数 === **/
 def SIDECAR_PORT = System.getenv('SIDECAR_PORT') ?: '9797'
@@ -81,6 +82,60 @@ def waitForHealthy = { String url, int timeoutSec ->
         Thread.sleep(200)
     }
     return false
+}
+
+def runAndCapture(List<String> cmd) {
+    Process p = new ProcessBuilder(cmd)
+            .redirectErrorStream(true) // 合并 stderr，避免阻塞
+            .start()
+    ByteArrayOutputStream bout = new ByteArrayOutputStream()
+    def inStream = p.getInputStream()
+    byte[] buf = new byte[8192]
+    int n
+    try {
+        while ((n = inStream.read(buf)) != -1) {
+            bout.write(buf, 0, n)
+        }
+    } finally {
+        try { inStream.close() } catch (Throwable ignored) {}
+    }
+    p.waitFor()
+    return new String(bout.toByteArray(), Charset.defaultCharset()).trim()
+}
+
+def killByPidWindows = { String pid ->
+    if (!pid) return
+    runAndCapture(["cmd", "/c", "taskkill /PID " + pid + " /T /F"])
+}
+
+def pidsListeningOnPortWindows = { String port ->
+    def out = runAndCapture([
+            "cmd", "/c",
+            "for /f \"tokens=5\" %a in ('netstat -ano ^| findstr :" + port + " ^| findstr LISTENING') do @echo %a"
+    ])
+    return out.readLines().collect { it.trim() }.findAll { it }
+}
+
+def pidsListeningOnPortUnix = { String port ->
+    def out = runAndCapture([
+            'bash', '-lc',
+            'command -v lsof >/dev/null 2>&1 && lsof -ti tcp:' + port + ' || (command -v fuser >/dev/null 2>&1 && fuser ' + port + '/tcp 2>/dev/null | awk "{print \\$1}") || true'
+    ])
+    return out.readLines().collect { it.trim() }.findAll { it }
+}
+
+def killByPidUnix = { String pid ->
+    if (!pid) return
+    runAndCapture(["bash", "-lc", "kill -TERM " + pid + " || true; sleep 0.3; kill -KILL " + pid + " || true"])
+}
+
+def pidListeningOnPortUnix = { String port ->
+    // lsof 不在时用 fallback
+    def out = runAndCapture([
+            'bash', '-lc',
+            'command -v lsof >/dev/null 2>&1 && lsof -ti tcp:' + port + ' | head -n1 || (command -v fuser >/dev/null 2>&1 && fuser ' + port + '/tcp 2>/dev/null | awk "{print \$1}" | head -n1) || true'
+    ])
+    return out
 }
 
 task sidecarStart {
@@ -132,41 +187,37 @@ task sidecarStop {
     group = "application"
     description = "Stop sidecar process by PID or fallback"
 
-    onlyIf {
-        STARTED_FLAG.exists() && PID_FILE.exists() && PID_FILE.text.trim()
-    }
-
     doLast {
-        if (!PID_FILE.exists()) {
-            println "[gradle] skip stopping sidecar: no PID file (not started by Gradle)"
-            return
+        boolean isWin = org.gradle.internal.os.OperatingSystem.current().isWindows()
+
+        // 1) 先按 PID 文件杀一次（如果有）
+        String pidFromFile = (PID_FILE.exists() ? PID_FILE.text.trim() : "")
+        if (pidFromFile) {
+            try {
+                if (isWin) killByPidWindows(pidFromFile) else killByPidUnix(pidFromFile)
+            } catch (Throwable ignore) {}
         }
-        def pid = PID_FILE.text.trim()
-        if (!pid) {
-            println "[gradle] skip stopping sidecar: empty PID (likely not started by Gradle)"
-            PID_FILE.delete()
-            return
-        }
 
-        try {
-            if (org.gradle.internal.os.OperatingSystem.current().isWindows()) {
-
-                exec {
-                    commandLine "cmd", "/c", "taskkill /PID ${pid} /T /F"
-                    ignoreExitValue true
-                }
-            } else {
-
-                    exec {
-                        commandLine "bash", "-lc", "kill -TERM ${pid} || true"
-                        ignoreExitValue true
-                    }
+        // 2) 兜底循环：每 300ms 扫描 LISTENING PID 并全部强杀，直到端口空或超时
+        boolean freed = false
+        int attempts = 0
+        while (attempts++ < 20) { // 最多约 6 秒
+            def pids = isWin ? pidsListeningOnPortWindows(SIDECAR_PORT) : pidsListeningOnPortUnix(SIDECAR_PORT)
+            if (pids.isEmpty()) { freed = true; break }
+            pids.unique().each { pid ->
+                try {
+                    if (isWin) killByPidWindows(pid) else killByPidUnix(pid)
+                } catch (Throwable ignore) {}
             }
-        } catch (Exception ignore) {}
-        finally {
-            PID_FILE.delete()
+            Thread.sleep(300)
         }
-        println "[gradle] sidecar stopped"
+
+        try { PID_FILE.delete() } catch (ignored) {}
+        try { STARTED_FLAG.delete() } catch (ignored) {}
+
+        println freed ?
+                "[gradle] sidecar stopped and port ${SIDECAR_PORT} is free." :
+                "[gradle] attempted stop, but port ${SIDECAR_PORT} still busy."
     }
 }
 
