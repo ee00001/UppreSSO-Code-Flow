@@ -402,6 +402,7 @@ const rotateKey = async (ctx: Context): Promise<Uint8Array> => {
 	do {
 		const keypair = (await crypto.subtle.generateKey(
 			{
+				// RSA 2048 位，需要增江强度则修改
 				name: 'RSA-PSS',
 				modulusLength: 2048,
 				publicExponent: new Uint8Array([1, 0, 1]),
