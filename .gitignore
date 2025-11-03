@@ -3,10 +3,8 @@
 *.iml
 
 # Gradle & build
-.gradle/
 build/
 out/
-
 **/.gradle/
 
 # Java
@@ -16,7 +14,6 @@ out/
 .DS_Store
 Thumbs.db
 
-*.lock
 *.lock
 
 # Ignore all PEM files by default
