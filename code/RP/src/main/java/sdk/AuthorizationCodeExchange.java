@@ -30,14 +30,11 @@ public class AuthorizationCodeExchange {
     public static Map<String, String> exchangeCodeForToken(
             String code, String idpDomain, String verifier) throws Exception {
 
-        // 获取 PrivateToken 头
-        String privateTokenHeader = SidecarClient.acquirePrivateTokenHeader();
-
         //  拉取/缓存公钥
         KeyConfigResult kcr= getOrFetchServerPubKey(idpDomain);
 
         // 构造 bHTTP 请求
-        byte[] bhttp = buildBHttpRequest(code, verifier, idpDomain, privateTokenHeader);
+        byte[] bhttp = buildBHttpRequest(code, verifier, idpDomain);
 
         // 通过 OHTTP 客户端发往 IdP 的 /gateway
         OHttpClient ohttpClient = new OHttpClient(kcr.header, kcr.publicKey);
@@ -148,7 +145,7 @@ public class AuthorizationCodeExchange {
         throw new IOException("no compatible ohttp key config found");
     }
 
-    private static byte[] buildBHttpRequest(String code, String verifier, String idpBase, String authorizationHeader) throws IOException {
+    private static byte[] buildBHttpRequest(String code, String verifier, String idpBase) throws IOException {
         // 提取域名和协议
         URL idpUrl = new URL(idpBase);
         String scheme = idpUrl.getProtocol();
@@ -164,10 +161,11 @@ public class AuthorizationCodeExchange {
 
         // 规范化并签名
         String toSign = sdk.Tools.FormUtil.canonicalForSigning(params);
-        String assertion = AnonymousSignatureModule.sign(toSign); // 签名模块
+        AnonSigResult ar = AnonymousSignatureModule.buildAssertionOrPptoken(toSign);
 
         // 签名作为表单字段
-        params.put("client_assertion", assertion);
+        params.put("client_assertion_type", ar.assertionType);     // "ring" 或 "pptoken"
+        params.put("client_assertion", ar.clientAssertion);
 
         // 编码为最终的请求体
         byte[] body = sdk.Tools.FormUtil.encodeBody(params);
@@ -180,12 +178,12 @@ public class AuthorizationCodeExchange {
 
         bReq.addHeaderField(new BinaryHttpMessage.Field("content-type", "application/x-www-form-urlencoded"));
 
-        if (authorizationHeader != null && !authorizationHeader.trim().isEmpty()) {
-            bReq.addHeaderField(new BinaryHttpMessage.Field("authorization", authorizationHeader));
+        // pptoken分支
+        if ("pptoken".equals(ar.assertionType) && ar.authorizationHeader != null && !ar.authorizationHeader.isEmpty()) {
+            bReq.addHeaderField(new BinaryHttpMessage.Field("authorization", ar.authorizationHeader));
         }
 
         bReq.setBody(body);
-
         return bReq.serialize();
     }
 

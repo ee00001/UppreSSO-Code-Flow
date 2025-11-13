@@ -16,7 +16,6 @@
 
 static secp256k1_context* g_ctx = NULL;
 
-/* ---------- 工具：解析 [[B] -> pubkey[] ---------- */
 static int parse_pubkeys(JNIEnv* env, jobjectArray jkeys33, secp256k1_pubkey* out, size_t* out_n) {
     REQ_NOT_NULL(env, jkeys33, "keys", 0);
     jsize n = (*env)->GetArrayLength(env, jkeys33);
@@ -27,7 +26,7 @@ static int parse_pubkeys(JNIEnv* env, jobjectArray jkeys33, secp256k1_pubkey* ou
         jbyteArray jpk = (jbyteArray)(*env)->GetObjectArrayElement(env, jkeys33, i);
         REQ_NOT_NULL(env, jpk, "key element", 0);
         jsize len = (*env)->GetArrayLength(env, jpk);
-        (*env)->DeleteLocalRef(env, jpk); /* 先删，后面重新取元素值避免局部引用堆积 */
+        (*env)->DeleteLocalRef(env, jpk); 
         CHECK_THROW(env, len == 33, "java/lang/IllegalArgumentException", "each pubkey must be 33 bytes", 0);
 
         /* 重新取 bytes */
@@ -180,6 +179,147 @@ static jboolean native_whitelistVerify(JNIEnv* env, jclass clazz,
     return ok ? JNI_TRUE : JNI_FALSE;
 }
 
+/* whitelistSignMsg([[B online], [[B offline], [B sub], [B online_sk], [B summed_sk], int index, [B msg) -> [B sig */
+static jbyteArray native_whitelistSignMsg(JNIEnv* env, jclass clazz,
+                                          jobjectArray jOnlinePk33,
+                                          jobjectArray jOfflinePk33,
+                                          jbyteArray   jSubPk33,
+                                          jbyteArray   jOnlineSk32,
+                                          jbyteArray   jSummedSk32,
+                                          jint         jIndex,
+                                          jbyteArray   jMsg) {
+    (void)clazz;
+    REQ_NOT_NULL(env, g_ctx, "context", NULL);
+    REQ_NOT_NULL(env, jOnlinePk33, "onlinePk33", NULL);
+    REQ_NOT_NULL(env, jOfflinePk33, "offlinePk33", NULL);
+    REQ_NOT_NULL(env, jSubPk33, "subPk33", NULL);
+    REQ_NOT_NULL(env, jOnlineSk32, "onlineSk32", NULL);
+    REQ_NOT_NULL(env, jSummedSk32, "summedSk32", NULL);
+    REQ_NOT_NULL(env, jMsg, "msg", NULL);
+
+    jsize nOnline = (*env)->GetArrayLength(env, jOnlinePk33);
+    jsize nOffline= (*env)->GetArrayLength(env, jOfflinePk33);
+    CHECK_THROW(env, nOnline == nOffline, "java/lang/IllegalArgumentException", "online/offline size mismatch", NULL);
+    CHECK_THROW(env, nOnline > 0, "java/lang/IllegalArgumentException", "no keys provided", NULL);
+    CHECK_THROW(env, nOnline <= MAX_KEYS, "java/lang/IllegalArgumentException", "too many keys", NULL);
+
+    secp256k1_pubkey* online = (secp256k1_pubkey*) malloc(sizeof(secp256k1_pubkey) * (size_t)nOnline);
+    secp256k1_pubkey* offline= (secp256k1_pubkey*) malloc(sizeof(secp256k1_pubkey) * (size_t)nOffline);
+    CHECK_THROW(env, online && offline, "java/lang/OutOfMemoryError", "malloc failed", NULL);
+
+    size_t n1=0,n2=0;
+    if (!parse_pubkeys(env, jOnlinePk33, online, &n1)) { free(online); free(offline); return NULL; }
+    if (!parse_pubkeys(env, jOfflinePk33, offline,&n2)) { free(online); free(offline); return NULL; }
+
+    secp256k1_pubkey sub;
+    if (!parse_pubkey33(env, jSubPk33, &sub)) { free(online); free(offline); return NULL; }
+
+    jsize len1 = (*env)->GetArrayLength(env, jOnlineSk32);
+    jsize len2b= (*env)->GetArrayLength(env, jSummedSk32);
+    CHECK_THROW(env, len1==32, "java/lang/IllegalArgumentException", "onlineSk32 must be 32 bytes", NULL);
+    CHECK_THROW(env, len2b==32, "java/lang/IllegalArgumentException", "summedSk32 must be 32 bytes", NULL);
+    CHECK_THROW(env, jIndex>=0 && jIndex<nOnline, "java/lang/IllegalArgumentException", "index out of range", NULL);
+
+    jboolean c1=0, c2=0, c3=0;
+    unsigned char* online_sk = (unsigned char*)(*env)->GetByteArrayElements(env, jOnlineSk32, &c1);
+    unsigned char* summed_sk = (unsigned char*)(*env)->GetByteArrayElements(env, jSummedSk32, &c2);
+    jsize msglen = (*env)->GetArrayLength(env, jMsg);
+    unsigned char* msgbytes = (unsigned char*)(*env)->GetByteArrayElements(env, jMsg, &c3);
+
+    secp256k1_whitelist_signature sig;
+    int ok = secp256k1_whitelist_sign_msg(
+        g_ctx, &sig,
+        online, offline, (size_t)nOnline,
+        &sub,
+        (const unsigned char*)online_sk,
+        (const unsigned char*)summed_sk,
+        (size_t)jIndex,
+        (const unsigned char*)msgbytes,
+        (size_t)msglen
+    );
+
+    (*env)->ReleaseByteArrayElements(env, jOnlineSk32, (jbyte*)online_sk, JNI_ABORT);
+    (*env)->ReleaseByteArrayElements(env, jSummedSk32, (jbyte*)summed_sk, JNI_ABORT);
+    (*env)->ReleaseByteArrayElements(env, jMsg,        (jbyte*)msgbytes, JNI_ABORT);
+    free(online); free(offline);
+
+    CHECK_THROW(env, ok==1, "java/lang/RuntimeException", "secp256k1_whitelist_sign_msg failed", NULL);
+
+    size_t out_len = 33 + 32 * (size_t)nOnline;
+    unsigned char* out_buf = (unsigned char*) malloc(out_len);
+    CHECK_THROW(env, out_buf, "java/lang/OutOfMemoryError", "malloc failed", NULL);
+
+    size_t tmp = out_len;
+    int ok2 = secp256k1_whitelist_signature_serialize(g_ctx, out_buf, &tmp, &sig);
+    if (!(ok2==1 && tmp==out_len)) {
+        free(out_buf);
+        CHECK_THROW(env, 0, "java/lang/RuntimeException", "whitelist_signature_serialize failed", NULL);
+    }
+
+    jbyteArray jret = (*env)->NewByteArray(env, (jsize)out_len);
+    if (!jret) { free(out_buf); return NULL; }
+    (*env)->SetByteArrayRegion(env, jret, 0, (jsize)out_len, (const jbyte*)out_buf);
+    free(out_buf);
+    return jret;
+}
+
+/* whitelistVerifyMsg([B sig, [[B online], [[B offline], [B sub], [B msg]) -> boolean */
+static jboolean native_whitelistVerifyMsg(JNIEnv* env, jclass clazz,
+                                          jbyteArray   jSigBytes,
+                                          jobjectArray jOnlinePk33,
+                                          jobjectArray jOfflinePk33,
+                                          jbyteArray   jSubPk33,
+                                          jbyteArray   jMsg) {
+    (void)clazz;
+    REQ_NOT_NULL(env, g_ctx, "context", JNI_FALSE);
+    REQ_NOT_NULL(env, jSigBytes, "sigBytes", JNI_FALSE);
+    REQ_NOT_NULL(env, jOnlinePk33, "onlinePk33", JNI_FALSE);
+    REQ_NOT_NULL(env, jOfflinePk33, "offlinePk33", JNI_FALSE);
+    REQ_NOT_NULL(env, jSubPk33, "subPk33", JNI_FALSE);
+    REQ_NOT_NULL(env, jMsg, "msg", JNI_FALSE);
+
+    jsize nOnline = (*env)->GetArrayLength(env, jOnlinePk33);
+    jsize nOffline= (*env)->GetArrayLength(env, jOfflinePk33);
+    CHECK_THROW(env, nOnline==nOffline, "java/lang/IllegalArgumentException", "online/offline size mismatch", JNI_FALSE);
+    CHECK_THROW(env, nOnline>0, "java/lang/IllegalArgumentException", "no keys provided", JNI_FALSE);
+    CHECK_THROW(env, nOnline<=MAX_KEYS, "java/lang/IllegalArgumentException", "too many keys", JNI_FALSE);
+
+    secp256k1_pubkey* online = (secp256k1_pubkey*) malloc(sizeof(secp256k1_pubkey)*(size_t)nOnline);
+    secp256k1_pubkey* offline= (secp256k1_pubkey*) malloc(sizeof(secp256k1_pubkey)*(size_t)nOffline);
+    CHECK_THROW(env, online && offline, "java/lang/OutOfMemoryError", "malloc failed", JNI_FALSE);
+
+    size_t n1=0,n2=0;
+    if (!parse_pubkeys(env, jOnlinePk33, online, &n1)) { free(online); free(offline); return JNI_FALSE; }
+    if (!parse_pubkeys(env, jOfflinePk33, offline, &n2)) { free(online); free(offline); return JNI_FALSE; }
+
+    secp256k1_pubkey sub;
+    if (!parse_pubkey33(env, jSubPk33, &sub)) { free(online); free(offline); return JNI_FALSE; }
+
+    jsize siglen = (*env)->GetArrayLength(env, jSigBytes);
+    jboolean c1=0, c2=0;
+    unsigned char* sigbytes = (unsigned char*)(*env)->GetByteArrayElements(env, jSigBytes, &c1);
+
+    secp256k1_whitelist_signature sig;
+    int okp = secp256k1_whitelist_signature_parse(g_ctx, &sig, sigbytes, (size_t)siglen);
+    (*env)->ReleaseByteArrayElements(env, jSigBytes, (jbyte*)sigbytes, JNI_ABORT);
+    if (!okp) { free(online); free(offline); return JNI_FALSE; }
+
+    jsize msglen = (*env)->GetArrayLength(env, jMsg);
+    unsigned char* msgbytes = (unsigned char*)(*env)->GetByteArrayElements(env, jMsg, &c2);
+
+    int ok = secp256k1_whitelist_verify_msg(
+        g_ctx, &sig,
+        online, offline, (size_t)nOnline,
+        &sub,
+        (const unsigned char*)msgbytes,
+        (size_t)msglen
+    );
+
+    (*env)->ReleaseByteArrayElements(env, jMsg, (jbyte*)msgbytes, JNI_ABORT);
+    free(online); free(offline);
+    return ok ? JNI_TRUE : JNI_FALSE;
+}
+
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
     (void)reserved;
@@ -210,7 +350,6 @@ Java_sdk_Secp256k1Ring_whitelistSign(JNIEnv* env, jclass clazz,
                                 jSubPk33, jOnlineSk32, jSummedSk32, jIndex);
 }
 
-// Java 方法：public static native boolean whitelistVerify(byte[], byte[][], byte[][], byte[]);
 JNIEXPORT jboolean JNICALL
 Java_sdk_Secp256k1Ring_whitelistVerify(JNIEnv* env, jclass clazz,
                                        jbyteArray   jSigBytes,
@@ -220,7 +359,28 @@ Java_sdk_Secp256k1Ring_whitelistVerify(JNIEnv* env, jclass clazz,
     return native_whitelistVerify(env, clazz, jSigBytes, jOnlinePk33, jOfflinePk33, jSubPk33);
 }
 
-// === 服务器端（可选）：org.mitre.openid.connect.RingVerifier 只需要 verify ===
+JNIEXPORT jbyteArray JNICALL
+Java_sdk_Secp256k1Ring_whitelistSignMsg(JNIEnv* env, jclass clazz,
+                                        jobjectArray jOnlinePk33,
+                                        jobjectArray jOfflinePk33,
+                                        jbyteArray   jSubPk33,
+                                        jbyteArray   jOnlineSk32,
+                                        jbyteArray   jSummedSk32,
+                                        jint         jIndex,
+                                        jbyteArray   jMsg) {
+    return native_whitelistSignMsg(env, clazz, jOnlinePk33, jOfflinePk33, jSubPk33, jOnlineSk32, jSummedSk32, jIndex, jMsg);
+}
+
+JNIEXPORT jboolean JNICALL
+Java_sdk_Secp256k1Ring_whitelistVerifyMsg(JNIEnv* env, jclass clazz,
+                                          jbyteArray   jSigBytes,
+                                          jobjectArray jOnlinePk33,
+                                          jobjectArray jOfflinePk33,
+                                          jbyteArray   jSubPk33,
+                                          jbyteArray   jMsg) {
+    return native_whitelistVerifyMsg(env, clazz, jSigBytes, jOnlinePk33, jOfflinePk33, jSubPk33, jMsg);
+}
+
 JNIEXPORT jboolean JNICALL
 Java_org_mitre_openid_connect_RingVerifier_whitelistVerify(JNIEnv* env, jclass clazz,
                                                             jbyteArray   jSigBytes,
@@ -228,4 +388,14 @@ Java_org_mitre_openid_connect_RingVerifier_whitelistVerify(JNIEnv* env, jclass c
                                                             jobjectArray jOfflinePk33,
                                                             jbyteArray   jSubPk33) {
     return native_whitelistVerify(env, clazz, jSigBytes, jOnlinePk33, jOfflinePk33, jSubPk33);
+}
+
+JNIEXPORT jboolean JNICALL
+Java_org_mitre_openid_connect_RingVerifier_whitelistVerifyMsg(JNIEnv* env, jclass clazz,
+                                                              jbyteArray   jSigBytes,
+                                                              jobjectArray jOnlinePk33,
+                                                              jobjectArray jOfflinePk33,
+                                                              jbyteArray   jSubPk33,
+                                                              jbyteArray   jMsg) {
+    return native_whitelistVerifyMsg(env, clazz, jSigBytes, jOnlinePk33, jOfflinePk33, jSubPk33, jMsg);
 }

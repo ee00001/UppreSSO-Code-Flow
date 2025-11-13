@@ -1,6 +1,7 @@
 package sdk;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 
 public final class Secp256k1Ring {
     private Secp256k1Ring() {}
@@ -91,7 +92,21 @@ public final class Secp256k1Ring {
                                                  byte[][] onlinePk33,
                                                  byte[][] offlinePk33,
                                                  byte[]   subPk33);
-    // 便捷封装（参数校验）
+
+    public static native byte[] whitelistSignMsg(byte[][] onlinePk33,
+                                                 byte[][] offlinePk33,
+                                                 byte[]   subPk33,
+                                                 byte[]   onlineSk32,
+                                                 byte[]   summedSk32,
+                                                 int      index,
+                                                 byte[]   msg);
+
+    public static native boolean whitelistVerifyMsg(byte[]   sig,
+                                                    byte[][] onlinePk33,
+                                                    byte[][] offlinePk33,
+                                                    byte[]   subPk33,
+                                                    byte[]   msg);
+
     public static byte[] sign(byte[][] onlinePk33, byte[][] offlinePk33,
                               byte[] subPk33, byte[] signerOnlineSk32,
                               byte[] summedSk32, int index) {
@@ -108,6 +123,33 @@ public final class Secp256k1Ring {
         return whitelistSign(onlinePk33, offlinePk33, subPk33, signerOnlineSk32, summedSk32, index);
     }
 
+    public static byte[] signWithMsg(byte[][] onlinePk33, byte[][] offlinePk33,
+                                     byte[] subPk33, byte[] signerOnlineSk32,
+                                     byte[] summedSk32, int index,
+                                     byte[] msg) {
+        if (onlinePk33 == null || offlinePk33 == null || subPk33 == null
+                || signerOnlineSk32 == null || summedSk32 == null || msg == null) {
+            throw new IllegalArgumentException("null argument");
+        }
+        if (subPk33.length != 33) throw new IllegalArgumentException("subPk33 must be 33 bytes");
+        if (signerOnlineSk32.length != 32) throw new IllegalArgumentException("onlineSk32 must be 32 bytes");
+        if (summedSk32.length != 32) throw new IllegalArgumentException("summedSk32 must be 32 bytes");
+        if (onlinePk33.length != offlinePk33.length || onlinePk33.length == 0) {
+            throw new IllegalArgumentException("online/offline size mismatch or empty");
+        }
+        // msg 可为空数组，但不能是 null；长度任意，由 JNI 层做域分隔/长度前缀
+        return whitelistSignMsg(onlinePk33, offlinePk33, subPk33, signerOnlineSk32, summedSk32, index, msg);
+    }
+
+    public static byte[] signWithMsg(byte[][] onlinePk33, byte[][] offlinePk33,
+                                     byte[] subPk33, byte[] signerOnlineSk32,
+                                     byte[] summedSk32, int index,
+                                     String msgUtf8) {
+        if (msgUtf8 == null) throw new IllegalArgumentException("msgUtf8 is null");
+        return signWithMsg(onlinePk33, offlinePk33, subPk33, signerOnlineSk32, summedSk32, index,
+                msgUtf8.getBytes(StandardCharsets.UTF_8));
+    }
+
     public static boolean verify(byte[] sig, byte[][] onlinePk33,
                                  byte[][] offlinePk33, byte[] subPk33) {
         if (sig == null || onlinePk33 == null || offlinePk33 == null || subPk33 == null) {
@@ -118,5 +160,25 @@ public final class Secp256k1Ring {
             throw new IllegalArgumentException("online/offline size mismatch or empty");
         }
         return whitelistVerify(sig, onlinePk33, offlinePk33, subPk33);
+    }
+
+    public static boolean verifyWithMsg(byte[] sig, byte[][] onlinePk33,
+                                        byte[][] offlinePk33, byte[] subPk33,
+                                        byte[] msg) {
+        if (sig == null || onlinePk33 == null || offlinePk33 == null || subPk33 == null || msg == null) {
+            throw new IllegalArgumentException("null argument");
+        }
+        if (subPk33.length != 33) throw new IllegalArgumentException("subPk33 must be 33 bytes");
+        if (onlinePk33.length != offlinePk33.length || onlinePk33.length == 0) {
+            throw new IllegalArgumentException("online/offline size mismatch or empty");
+        }
+        return whitelistVerifyMsg(sig, onlinePk33, offlinePk33, subPk33, msg);
+    }
+
+    public static boolean verifyWithMsg(byte[] sig, byte[][] onlinePk33,
+                                        byte[][] offlinePk33, byte[] subPk33,
+                                        String msgUtf8) {
+        if (msgUtf8 == null) throw new IllegalArgumentException("msgUtf8 is null");
+        return verifyWithMsg(sig, onlinePk33, offlinePk33, subPk33, msgUtf8.getBytes(StandardCharsets.UTF_8));
     }
 }
