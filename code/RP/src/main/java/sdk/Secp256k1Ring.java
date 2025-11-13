@@ -15,8 +15,8 @@ public final class Secp256k1Ring {
     static {
         try {
             System.loadLibrary("secp256k1zkp_jni");
-            LIB_LOADED = true;          // 关键：标记已加载
-            tryResolveNatives();         // 触发一次本地符号解析
+            LIB_LOADED = true;
+            tryResolveNatives();
         } catch (UnsatisfiedLinkError | SecurityException e) {
             LOAD_ERROR = e.toString();
             LIB_LOADED = false;
@@ -29,12 +29,11 @@ public final class Secp256k1Ring {
         return LIB_LOADED;
     }
 
-    /** —— 进一步检查：native 符号是否可解析（已尝试触发一次） —— */
+    /** —— 检查：native 符号是否可解析 —— */
     public static boolean isNativeResolvable() {
         return NATIVES_RESOLVED;
     }
 
-    /** —— 不就绪则抛异常（附诊断信息） —— */
     public static void requireLibraryLoaded() {
         if (!LIB_LOADED) {
             StringBuilder sb = new StringBuilder("Native library not loaded. ");
@@ -44,7 +43,6 @@ public final class Secp256k1Ring {
         }
     }
 
-    /** —— 打印诊断信息（工作目录 / java.library.path / PATH 片段） —— */
     public static String diagnose() {
         String cwd = new File(".").getAbsolutePath();
         String jlp = System.getProperty("java.library.path", "");
@@ -58,9 +56,7 @@ public final class Secp256k1Ring {
         return s.length() <= n ? s : (s.substring(0, n) + "...");
     }
 
-    /** —— Level 2：尝试解析 native 符号（不要求功能成功） —— */
     private static void tryResolveNatives() {
-        // 仅在已 load 的前提下做
         if (!LIB_LOADED) return;
         try {
             // 构造最小占位参数：长度一致但内容无意义，仅用来触发符号解析

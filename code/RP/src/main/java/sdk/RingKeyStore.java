@@ -15,6 +15,7 @@ public final class RingKeyStore {
         this.n = n;
     }
 
+    // 仅环的所有者开环时使用一次
     public void generateAndSave(){
         // sub
         BigInteger subSK = EC256k1.randomScalar();
@@ -85,5 +86,8 @@ public final class RingKeyStore {
         return Hex.fromHex(IOUtil.readString(dir.resolve("sub.sk")));
     }
 
+    public byte[] loadSummedSk32(int index) {
+        return Hex.fromHex(IOUtil.readString(dir.resolve("summed_" + index + ".sk")));
+    }
 
 }

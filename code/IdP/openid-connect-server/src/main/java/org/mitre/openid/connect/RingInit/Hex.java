@@ -1,4 +1,4 @@
-package org.mitre.openid.connect.RingVerifier;
+package org.mitre.openid.connect.RingInit;
 
 public final class Hex {
 

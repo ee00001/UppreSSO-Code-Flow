@@ -1,4 +1,4 @@
-package org.mitre.openid.connect.RingVerifier;
+package org.mitre.openid.connect.RingInit;
 
 import java.nio.file.Files;
 import java.nio.file.Path;

@@ -1,4 +1,4 @@
-package org.mitre.openid.connect.RingVerifier;
+package org.mitre.openid.connect.RingInit;
 
 import java.math.BigInteger;
 import java.nio.file.Path;
@@ -84,5 +84,8 @@ public final class RingKeyStore {
         return Hex.fromHex(IOUtil.readString(dir.resolve("sub.sk")));
     }
 
+    public byte[] loadSummedSk32(int index) {
+        return Hex.fromHex(IOUtil.readString(dir.resolve("summed_" + index + ".sk")));
+    }
 
 }
