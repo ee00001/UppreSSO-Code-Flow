@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.mitre.openid.connect.RingVerifier;
 import org.mitre.openid.connect.util.FormUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,11 +42,15 @@ public class PrivacyTokenEndpoint {
 	private final String verifyUrl = System.getenv().getOrDefault(
 		"PP_VERIFY_URL", "http://127.0.0.1:9797/verify");
 
+	private final RingVerifier ringVerifier;
+
 	@Autowired
 	public PrivacyTokenEndpoint(AuthorizationCodeServices authorizationCodeServices,
-								AuthorizationServerTokenServices tokenServices) {
+								AuthorizationServerTokenServices tokenServices,
+								RingVerifier ringVerifier) {
 		this.authorizationCodeServices = authorizationCodeServices;
 		this.tokenServices = tokenServices;
+		this.ringVerifier = ringVerifier;
 	}
 
 	@RequestMapping(method = RequestMethod.POST)
@@ -56,14 +61,27 @@ public class PrivacyTokenEndpoint {
 
 		logger.info("[PrivacyTokenEndpoint] POST /oauth/token invoked");
 
-		verifyPrivateTokenWithSidecar(authorization);
-		logger.info("[PrivacyTokenEndpoint] privacy pass token verified.");
-
-		// 隐私模式：验证签名（留空实现）
-		if (!verifyPrivacySignature(parameters, parameters.get("client_assertion"))) {
-			throw new InvalidClientException("Invalid privacy signature");
+		String assertionType = parameters.get("client_assertion_type");
+		if (!StringUtils.hasText(assertionType)) {
+			throw new InvalidClientException("Missing client_assertion_type (expect 'ring' or 'pptoken')");
 		}
-		logger.info("[PrivacyTokenEndpoint] ring signature verified");
+
+		switch (assertionType) {
+			case "pptoken": {
+				verifyPrivateTokenWithSidecar(authorization);
+				logger.info("[PrivacyTokenEndpoint] privacy pass token verified.");
+				break;
+			}
+			case "ring": {
+				if (!verifyPrivacySignature(parameters)) {
+					throw new InvalidClientException("Invalid ring signature");
+				}
+				logger.info("[PrivacyTokenEndpoint] ring signature verified");
+				break;
+			}
+			default:
+				throw new InvalidClientException("Invalid client_assertion_type (expect 'ring' or 'pptoken')");
+		}
 
 		// 校验授权码
 		String code = parameters.get("code");
@@ -179,16 +197,22 @@ public class PrivacyTokenEndpoint {
 		}
 	}
 
-	private boolean verifyPrivacySignature(Map<String, String> params,
-										   String signature) {
-		// TODO：接入环签名
-		// 拷贝一份，去掉 client_assertion 再规范化
-		Map<String,String> copy = new HashMap<>(params);
+	private boolean verifyPrivacySignature(Map<String, String> params) {
+		String assertion = params.get("client_assertion");
+
+		// 规范化串：去掉 client_assertion / client_assertion_type 再 canonical
+		Map<String, String> copy = new HashMap<>(params);
 		copy.remove("client_assertion");
+		copy.remove("client_assertion_type");
+
 		String canonical = FormUtil.canonicalForSigning(copy);
+		byte[] msg = canonical.getBytes(StandardCharsets.UTF_8);
 
-		return true; // 目前直接放行
+		boolean ok = ringVerifier.verifyWithMsgB64Url(assertion, msg);
+		if (!ok) {
+			logger.warn("[PrivacyTokenEndpoint] ring verify failed. canonical='{}'", canonical);
+		}
+		return ok;
 	}
-
 }
 

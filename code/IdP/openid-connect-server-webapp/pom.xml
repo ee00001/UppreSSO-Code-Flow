@@ -83,6 +83,8 @@
 					<webAppConfig>
 						<contextPath>/openid-connect-server-webapp</contextPath>
 					</webAppConfig>
+					<!-- secp256k1-zkp dll -->
+<!--					<jvmArgs>-Djava.library.path=D:/UppreSSO-Code-Flow-main/code/IdP/openid-connect-server/native</jvmArgs>-->
 				</configuration>
 			</plugin>
 			<plugin>

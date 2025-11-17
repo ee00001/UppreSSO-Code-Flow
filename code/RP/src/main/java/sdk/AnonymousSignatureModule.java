@@ -23,11 +23,10 @@ public final class AnonymousSignatureModule {
                 SignerBundleConfig cfg = SignerBundleConfig.load(signerDir);
 
                 RingKeyStore ks = new RingKeyStore(signerDir, cfg.n);
-                ks.assertPublicKeysExist();
 
-                byte[][] onlinePks  = ks.loadOnlinePks();
-                byte[][] offlinePks = ks.loadOfflinePks();
-                byte[]   subPk33    = ks.loadSubPk();
+                byte[][] onlinePks  = toPkArray(cfg.onlinePks);      // <<=
+                byte[][] offlinePks = toPkArray(cfg.offlinePks);     // <<=
+                byte[]   subPk33    = Hex.fromHex(cfg.subPk);
 
                 byte[] onlineSk32 = ks.loadOnlineSk32(cfg.index);
                 byte[] summedSk32 = ks.loadSummedSk32(cfg.index);
@@ -40,7 +39,12 @@ public final class AnonymousSignatureModule {
                 );
                 return new AnonSigResult("ring", b64url(sig), null);
             } catch (Throwable ringErr) {
+                System.out.println("[sig] ring-sign failed, fallback to pptoken. reason=" + ringErr.getClass().getName()
+                        + ", msg=" + ringErr.getMessage());
+                ringErr.printStackTrace(System.out);
             }
+        }else {
+            System.out.println("[sig] signerDir is null, cannot do ring, fallback to pptoken.");
         }
 
         String authz = SidecarClient.acquirePrivateTokenHeader();
@@ -62,5 +66,11 @@ public final class AnonymousSignatureModule {
 
     private static String b64url(byte[] in) {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(in);
+    }
+
+    private static byte[][] toPkArray(List<String> hexList) {
+        byte[][] arr = new byte[hexList.size()][];
+        for (int i = 0; i < hexList.size(); i++) arr[i] = Hex.fromHex(hexList.get(i));
+        return arr;
     }
 }
