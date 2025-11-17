@@ -1,55 +1,106 @@
 package sdk;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Base64;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Locale;
 
 import sdk.Tools.*;
 
 public final class AnonymousSignatureModule {
     private AnonymousSignatureModule() {}
 
-    public static AnonSigResult buildAssertionOrPptoken(String payloadUtf8) {
+    public static AnonSigResult buildAssertionOrPptoken(String payloadUtf8, String mode) {
         byte[] msg = payloadUtf8.getBytes(StandardCharsets.UTF_8);
 
-        Path signerDir = chooseSignerDir();
-        if (signerDir != null) {
-            try {
-                SignerBundleConfig cfg = SignerBundleConfig.load(signerDir);
+        final String resolvedMode = (mode == null || mode.trim().isEmpty())
+                ? "auto"
+                : mode.trim().toLowerCase(Locale.ROOT);
 
-                RingKeyStore ks = new RingKeyStore(signerDir, cfg.n);
-
-                byte[][] onlinePks  = toPkArray(cfg.onlinePks);      // <<=
-                byte[][] offlinePks = toPkArray(cfg.offlinePks);     // <<=
-                byte[]   subPk33    = Hex.fromHex(cfg.subPk);
-
-                byte[] onlineSk32 = ks.loadOnlineSk32(cfg.index);
-                byte[] summedSk32 = ks.loadSummedSk32(cfg.index);
-
-                Secp256k1Ring.requireLibraryLoaded();
-                byte[] sig = Secp256k1Ring.whitelistSignMsg(
-                        onlinePks, offlinePks, subPk33,
-                        onlineSk32, summedSk32, cfg.index,
-                        msg
-                );
-                return new AnonSigResult("ring", b64url(sig), null);
-            } catch (Throwable ringErr) {
-                System.out.println("[sig] ring-sign failed, fallback to pptoken. reason=" + ringErr.getClass().getName()
-                        + ", msg=" + ringErr.getMessage());
-                ringErr.printStackTrace(System.out);
+        switch (resolvedMode) {
+            case "pptoken": {
+                // 强制使用 pptoken，不做 ring 尝试
+                String authz = SidecarClient.acquirePrivateTokenHeader();
+                return new AnonSigResult("pptoken", "", authz);
             }
-        }else {
-            System.out.println("[sig] signerDir is null, cannot do ring, fallback to pptoken.");
+
+            case "ring": {
+                // 强制使用 ring，失败则抛错（不回落）
+                return doRingOrThrow(msg,  false);
+            }
+
+            case "auto": {
+                // 先尝试 ring，失败则回落到 pptoken
+                try {
+                    return doRingOrThrow(msg,  true); // 会在内部成功返回
+                } catch (Throwable ringErr) {
+                    // 只有当 allowFallback=false 才会抛出；这里传 true，正常不会到此
+                    System.out.println("[sig][auto] unexpected ring throw: " + ringErr.getClass().getName()
+                            + ", msg=" + ringErr.getMessage());
+                }
+                // 回落 pptoken
+                String authz = SidecarClient.acquirePrivateTokenHeader();
+                return new AnonSigResult("pptoken",  "", authz);
+            }
+
+            default:
+                throw new IllegalArgumentException("Unsupported mode: " + mode + " (expected ring|pptoken|auto)");
+        }
+    }
+
+    private static AnonSigResult doRingOrThrow(byte[] msg, boolean allowFallback) {
+        Path signerDir = chooseSignerDir();
+        if (signerDir == null) {
+            String m = "[sig] signerDir is null; ring mode cannot proceed.";
+            if (allowFallback) {
+                System.out.println(m + " fallback to pptoken.");
+                String authz = SidecarClient.acquirePrivateTokenHeader();
+                return new AnonSigResult("pptoken", "", authz);
+            }
+            throw new IllegalStateException(m);
         }
 
-        String authz = SidecarClient.acquirePrivateTokenHeader();
-        String assertion = "";
-        return new AnonSigResult("pptoken", assertion, authz);
+        try {
+            // 载入 client_config.json（仅用于公钥）
+            SignerBundleConfig cfg = SignerBundleConfig.load(signerDir);
+
+            // 私钥本地读取
+            RingKeyStore ks = new RingKeyStore(signerDir, cfg.n);
+
+            // 公钥来自 cfg，不再读 *.pk
+            byte[][] onlinePks  = toPkArray(cfg.onlinePks);
+            byte[][] offlinePks = toPkArray(cfg.offlinePks);
+            byte[]   subPk33    = Hex.fromHex(cfg.subPk);
+
+            // 仅需本 client 的两把私钥
+            byte[] onlineSk32 = ks.loadOnlineSk32(cfg.index);
+            byte[] summedSk32 = ks.loadSummedSk32(cfg.index);
+
+            Secp256k1Ring.requireLibraryLoaded();
+            byte[] sig = Secp256k1Ring.whitelistSignMsg(
+                    onlinePks, offlinePks, subPk33,
+                    onlineSk32, summedSk32, cfg.index,
+                    msg
+            );
+            System.out.println("[sig] mode=ring, index=" + cfg.index + ", n=" + cfg.n + ", sig.len=" + sig.length);
+            return new AnonSigResult("ring", b64url(sig), /*authz*/ null);
+
+        } catch (Throwable ringErr) {
+            System.out.println("[sig] ring-sign failed. reason=" + ringErr.getClass().getName()
+                    + ", msg=" + ringErr.getMessage());
+            if (allowFallback) {
+                System.out.println("[sig] fallback to pptoken.");
+                String authz = SidecarClient.acquirePrivateTokenHeader();
+                return new AnonSigResult("pptoken", "", authz);
+            }
+            // 强制 ring 模式：失败即抛
+            throw (ringErr instanceof RuntimeException)
+                    ? (RuntimeException) ringErr
+                    : new RuntimeException(ringErr);
+        }
     }
 
 

@@ -178,7 +178,8 @@ public class AuthorizationCodeExchange {
 
         // 规范化并签名
         String toSign = sdk.Tools.FormUtil.canonicalForSigning(params);
-        AnonSigResult ar = AnonymousSignatureModule.buildAssertionOrPptoken(toSign);
+        // 匿名认证模式:auto|ring|pptoken(auto模式是先尝试ring然后尝试pptoken)
+        AnonSigResult ar = AnonymousSignatureModule.buildAssertionOrPptoken(toSign,"auto");
 
         System.out.println("[sig] mode=" + ar.assertionType
                 + ", assertion.len=" + (ar.clientAssertion == null ? -1 : ar.clientAssertion.length())
