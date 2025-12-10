@@ -67,6 +67,9 @@ export async function onBTNClick() {
 
 //授权码流入口
 export async function onBTNClickCode(){
+    // time test
+    const startMs = performance.now();
+
     const {t, challenge, method} = await fetch(`${RPDomain}/getT?flow=code`, { credentials: 'include' }).then(r => r.json());
 
     const state = generateState();
@@ -79,6 +82,37 @@ export async function onBTNClickCode(){
         `&state=${state}` +
         `&code_challenge=${encodeURIComponent(challenge)}` +
         `&code_challenge_method=${method}`;
+
+    const endMs = performance.now();
+    const deltaMs = endMs - startMs;
+
+    const payload = {
+        flow: 'code',
+        ms: deltaMs,
+        state: state,
+        ts: Date.now()
+    };
+
+    const data = JSON.stringify(payload);
+    const url  = `${RPDomain}/time/request`;
+
+    try {
+        if (navigator.sendBeacon) {
+            const blob = new Blob([data], { type: 'application/json' });
+            navigator.sendBeacon(url, blob);
+        } else {
+            // 兜底：keepalive=true，尽量在导航前发出去
+            fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: data,
+                keepalive: true
+            }).catch(() => {});
+        }
+    } catch (e) {
+        // 测量失败就算了，不影响主流程
+        console && console.warn && console.warn('metrics send failed', e);
+    }
 
     location.href = CodeFlowUrl;
 }

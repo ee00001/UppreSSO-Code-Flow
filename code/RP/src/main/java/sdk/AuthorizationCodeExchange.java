@@ -44,20 +44,20 @@ public class AuthorizationCodeExchange {
 
         String json = new String(bresp.getBody(), StandardCharsets.UTF_8);
 
-        byte[] bodyBytes = bresp.getBody();
-        System.out.println("[dbg] bodyBytes=" + bodyBytes.length + " bytes");
+//        byte[] bodyBytes = bresp.getBody();
+//        System.out.println("[dbg] bodyBytes=" + bodyBytes.length + " bytes");
 
-        // 打印服务器结果，测试用
-        try {
-            com.google.gson.Gson prettyGson = new com.google.gson.GsonBuilder()
-                    .setPrettyPrinting()
-                    .disableHtmlEscaping()
-                    .create();
-            com.google.gson.JsonElement je = com.google.gson.JsonParser.parseString(json);
-            System.out.println("[dbg] json pretty:\n" + prettyGson.toJson(je));
-        } catch (com.google.gson.JsonSyntaxException e) {
-            System.out.println("[dbg] not valid JSON, raw body shown above. reason=" + e.getMessage());
-        }
+//        // 打印服务器结果，测试用
+//        try {
+//            com.google.gson.Gson prettyGson = new com.google.gson.GsonBuilder()
+//                    .setPrettyPrinting()
+//                    .disableHtmlEscaping()
+//                    .create();
+//            com.google.gson.JsonElement je = com.google.gson.JsonParser.parseString(json);
+//            System.out.println("[dbg] json pretty:\n" + prettyGson.toJson(je));
+//        } catch (com.google.gson.JsonSyntaxException e) {
+//            System.out.println("[dbg] not valid JSON, raw body shown above. reason=" + e.getMessage());
+//        }
 
         return new Gson().fromJson(json, Map.class);
     }
@@ -181,9 +181,9 @@ public class AuthorizationCodeExchange {
         // 匿名认证模式:auto|ring|pptoken(auto模式是先尝试ring然后尝试pptoken)
         AnonSigResult ar = AnonymousSignatureModule.buildAssertionOrPptoken(toSign,"auto");
 
-        System.out.println("[sig] mode=" + ar.assertionType
-                + ", assertion.len=" + (ar.clientAssertion == null ? -1 : ar.clientAssertion.length())
-                + ", hasAuthz=" + (ar.authorizationHeader != null && !ar.authorizationHeader.isEmpty()));
+//        System.out.println("[sig] mode=" + ar.assertionType
+//                + ", assertion.len=" + (ar.clientAssertion == null ? -1 : ar.clientAssertion.length())
+//                + ", hasAuthz=" + (ar.authorizationHeader != null && !ar.authorizationHeader.isEmpty()));
 
         // 签名作为表单字段
         params.put("client_assertion_type", ar.assertionType);     // "ring" 或 "pptoken"

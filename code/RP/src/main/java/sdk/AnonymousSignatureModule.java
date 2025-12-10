@@ -8,10 +8,15 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import sdk.Tools.*;
 
 public final class AnonymousSignatureModule {
     private AnonymousSignatureModule() {}
+
+    private static final Logger logger = LoggerFactory.getLogger("sig");
 
     public static AnonSigResult buildAssertionOrPptoken(String payloadUtf8, String mode) {
         byte[] msg = payloadUtf8.getBytes(StandardCharsets.UTF_8);
@@ -38,8 +43,11 @@ public final class AnonymousSignatureModule {
                     return doRingOrThrow(msg,  true); // 会在内部成功返回
                 } catch (Throwable ringErr) {
                     // 只有当 allowFallback=false 才会抛出；这里传 true，正常不会到此
-                    System.out.println("[sig][auto] unexpected ring throw: " + ringErr.getClass().getName()
-                            + ", msg=" + ringErr.getMessage());
+                    logger.error(
+                            "[sig][auto] unexpected ring throw: type={}, msg={}",
+                            ringErr.getClass().getName(),
+                            ringErr.getMessage()
+                    );
                 }
                 // 回落 pptoken
                 String authz = SidecarClient.acquirePrivateTokenHeader();
@@ -56,7 +64,7 @@ public final class AnonymousSignatureModule {
         if (signerDir == null) {
             String m = "[sig] signerDir is null; ring mode cannot proceed.";
             if (allowFallback) {
-                System.out.println(m + " fallback to pptoken.");
+                logger.warn("{} fallback to pptoken.", m);
                 String authz = SidecarClient.acquirePrivateTokenHeader();
                 return new AnonSigResult("pptoken", "", authz);
             }
@@ -85,14 +93,24 @@ public final class AnonymousSignatureModule {
                     onlineSk32, summedSk32, cfg.index,
                     msg
             );
-            System.out.println("[sig] mode=ring, index=" + cfg.index + ", n=" + cfg.n + ", sig.len=" + sig.length);
+
+            logger.info(
+                    "[sig] mode=ring index={} n={} sig.len={}",
+                    cfg.index, cfg.n, sig.length
+            );
+
             return new AnonSigResult("ring", b64url(sig), /*authz*/ null);
 
         } catch (Throwable ringErr) {
-            System.out.println("[sig] ring-sign failed. reason=" + ringErr.getClass().getName()
-                    + ", msg=" + ringErr.getMessage());
+
+            logger.warn(
+                    "[sig] ring-sign failed. type={} msg={}",
+                    ringErr.getClass().getName(),
+                    ringErr.getMessage()
+            );
+
             if (allowFallback) {
-                System.out.println("[sig] fallback to pptoken.");
+                logger.warn("[sig] fallback to pptoken after ring failure.");
                 String authz = SidecarClient.acquirePrivateTokenHeader();
                 return new AnonSigResult("pptoken", "", authz);
             }

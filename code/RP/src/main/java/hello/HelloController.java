@@ -2,8 +2,6 @@ package hello;
 import com.google.gson.Gson;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.ConcurrentModel;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import sdk.Bean.UserInfo;
 import sdk.Bean.UserManager;
@@ -30,20 +28,21 @@ import java.security.Security;
 
 import com.google.gson.JsonObject;
 
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Controller
 public class HelloController {
+    private static final Logger logger = LoggerFactory.getLogger(HelloController.class);
+
     Recluse recluse = new Recluse();
     private static final String SESSION_VERIFIER_KEY = "pkce_verifier";
 
     @RequestMapping("/")
-    public String index(Model model) {
-        System.out.println("/index");
+    public String index() {
         return "index";
     }
 
-    // 确保在类加载时添加 Bouncy Castle 提供者
     static {
         Security.addProvider(new BouncyCastleProvider());
     }
@@ -53,8 +52,9 @@ public class HelloController {
     @RequestMapping(value = "/getT", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     public Object getT(HttpSession session, @RequestParam(value = "flow", required = false) String flow){
-        System.out.println("/getT");
-        System.out.println("Session ID: " + session.getId());
+
+//        logger.info("/getT sid={} flow={}", session.getId(), flow);
+
         try {
             // 生成椭圆曲线密钥对
             ECParameterSpec ecSpec = ECNamedCurveTable.getParameterSpec("secp256k1");
@@ -83,7 +83,7 @@ public class HelloController {
 
             return t;
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("getT error sid={}", session.getId(), e);
             return null;
         }
     }
@@ -91,18 +91,19 @@ public class HelloController {
     @RequestMapping(value = "/authorization", method = RequestMethod.POST)
     @ResponseBody
     public String authorization(@RequestBody String body, HttpServletRequest request) {
-        System.out.println("/authorization");
-        String t = tStore.remove(request.getSession().getId());
-        if (t == null)
-            return "{\"result\":\"error\"}";
+        HttpSession session = request.getSession(false);
+        String sid = (session != null) ? session.getId() : "no-session";
+        logger.info("/authorization sid={}", sid);
 
         Gson gson = new Gson();
         JsonObject jsonObj = gson.fromJson(body, JsonObject.class);
         String tokenStr;
 
         try {
+            String flow = "implicit";
             // 授权码流
             if (jsonObj.has("code")) {
+                flow = "code";
                 String code = jsonObj.get("code").getAsString();
 
                 // IdP域名
@@ -111,37 +112,72 @@ public class HelloController {
                 // PKCE verifier
                 String verifier = (String) request.getSession()
                         .getAttribute(SESSION_VERIFIER_KEY);
-                if (verifier == null) return "{\"result\":\"error\"}";
+                if (verifier == null) {
+                    logger.warn("authorization: missing PKCE verifier sid={}", sid);
+                    return "{\"result\":\"error\"}";
+                }
                 request.getSession().removeAttribute(SESSION_VERIFIER_KEY);
-
 
                 Map<String, String> resp = AuthorizationCodeExchange.exchangeCodeForToken(
                         code, IdPDomain, verifier);
                 tokenStr = resp.get("id_token");
-                if (tokenStr == null) return "{\"result\":\"error\"}";
+                if (tokenStr == null) {
+                    logger.warn("authorization: no id_token in response sid={}", sid);
+                    return "{\"result\":\"error\"}";
+                }
             } else {
                 // 隐式流：直接取 id_token
                 tokenStr = jsonObj.get("id_token").getAsString();
+            }
+
+            // time test
+            long startNs = System.nanoTime();
+
+            String t = (session != null) ? tStore.remove(session.getId()) : null;
+            if (t == null) {
+                logger.warn("authorization: missing t sid={}", sid);
+                return "{\"result\":\"error\"}";
             }
 
             //验证token有效性，提取用户身份
             recluse.receiveToken(tokenStr, t);
             RecluseToken token = recluse.getToken();
 
-            if (!token.isValid()) return "{\"result\":\"error\"}";
+            if (!token.isValid()) {
+                logger.warn("authorization: invalid token sid={}", sid);
+                return "{\"result\":\"error\"}";
+            }
 
-            System.out.println("Token is valid, subject: " + token.getSubject());
+//            logger.info("Token is valid, subject={}", token.getSubject());
+
+            String subject = token.getSubject();
             UserInfo localUserInfo = UserManager.getUserByID(token.getSubject());
+            String resultJson;
+
             if (localUserInfo != null) {
-                return "{\"result\":\"ok\"}";
+                resultJson = "{\"result\":\"ok\"}";
             } else {
                 UserInfo user = new UserInfo();
                 user.setID(token.getSubject());
                 UserManager.setUser(user);
-                return "{\"result\":\"register\"}";
+                resultJson = "{\"result\":\"register\"}";
             }
+
+            long endNs = System.nanoTime();
+            long ms = (endNs - startNs) / 1_000_000L;
+
+            logger.info(
+                    "RP_TOKEN_VERIFY_LOGIN_TIME ms={} flow={} sid={} subject={} result={}",
+                    ms,
+                    flow,
+                    sid,
+                    subject,
+                    (localUserInfo != null ? "ok" : "register")
+            );
+
+            return resultJson;
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("authorization error sid={}", sid, e);
             return "{\"result\":\"error\"}";
         }
     }
