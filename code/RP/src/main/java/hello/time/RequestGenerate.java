@@ -3,7 +3,6 @@ package hello.time;
 public class RequestGenerate {
     private String flow;
     private long ms;
-    private String state;
     private long ts;
 
     public long getMs() {
@@ -20,14 +19,6 @@ public class RequestGenerate {
 
     public void setFlow(String flow) {
         this.flow = flow;
-    }
-
-    public String getState() {
-        return state;
-    }
-
-    public void setState(String state) {
-        this.state = state;
     }
 
     public long getTs() {

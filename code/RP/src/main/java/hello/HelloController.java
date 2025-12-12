@@ -91,23 +91,30 @@ public class HelloController {
     @RequestMapping(value = "/authorization", method = RequestMethod.POST)
     @ResponseBody
     public String authorization(@RequestBody String body, HttpServletRequest request) {
+        // time test
+        long handlerStartNs = System.nanoTime();
+        long verifyStartNs;
+
         HttpSession session = request.getSession(false);
         String sid = (session != null) ? session.getId() : "no-session";
-        logger.info("/authorization sid={}", sid);
+//        logger.info("/authorization sid={}", sid);
 
         Gson gson = new Gson();
         JsonObject jsonObj = gson.fromJson(body, JsonObject.class);
         String tokenStr;
 
+        // IdP域名
+        String IdPDomain = "http://localhost:8080";
+
         try {
             String flow = "implicit";
+
+
             // 授权码流
             if (jsonObj.has("code")) {
                 flow = "code";
                 String code = jsonObj.get("code").getAsString();
 
-                // IdP域名
-                String IdPDomain = "http://localhost:8080";
 
                 // PKCE verifier
                 String verifier = (String) request.getSession()
@@ -120,18 +127,23 @@ public class HelloController {
 
                 Map<String, String> resp = AuthorizationCodeExchange.exchangeCodeForToken(
                         code, IdPDomain, verifier);
+
+                verifyStartNs = System.nanoTime();
+
                 tokenStr = resp.get("id_token");
                 if (tokenStr == null) {
                     logger.warn("authorization: no id_token in response sid={}", sid);
                     return "{\"result\":\"error\"}";
                 }
             } else {
+
+                verifyStartNs = System.nanoTime();
+
                 // 隐式流：直接取 id_token
                 tokenStr = jsonObj.get("id_token").getAsString();
             }
 
-            // time test
-            long startNs = System.nanoTime();
+
 
             String t = (session != null) ? tStore.remove(session.getId()) : null;
             if (t == null) {
@@ -144,36 +156,60 @@ public class HelloController {
             RecluseToken token = recluse.getToken();
 
             if (!token.isValid()) {
-                logger.warn("authorization: invalid token sid={}", sid);
+                long endNs = System.nanoTime();
+                long verifyMs = (endNs - verifyStartNs) / 1_000_000L;
+
+                logger.warn("RP_TOKEN_VERIFY_LOGIN_TIME ms={} flow={} sid={} result=invalid_token",
+                        verifyMs, flow, sid);
+
+                if ("code".equals(flow)) {
+                    long fullMs = (endNs - handlerStartNs) / 1_000_000L;
+                    logger.warn("RP_CODE_TO_LOGIN_TIME ms={} flow={} sid={} result=invalid_token",
+                            fullMs, flow, sid);
+                }
+
                 return "{\"result\":\"error\"}";
             }
-
-//            logger.info("Token is valid, subject={}", token.getSubject());
 
             String subject = token.getSubject();
             UserInfo localUserInfo = UserManager.getUserByID(token.getSubject());
             String resultJson;
+            String resultLabel;
 
             if (localUserInfo != null) {
                 resultJson = "{\"result\":\"ok\"}";
+                resultLabel = "ok";
             } else {
                 UserInfo user = new UserInfo();
                 user.setID(token.getSubject());
                 UserManager.setUser(user);
                 resultJson = "{\"result\":\"register\"}";
+                resultLabel = "register";
             }
 
             long endNs = System.nanoTime();
-            long ms = (endNs - startNs) / 1_000_000L;
+            long verifyMs = (endNs - verifyStartNs) / 1_000_000L;
 
             logger.info(
                     "RP_TOKEN_VERIFY_LOGIN_TIME ms={} flow={} sid={} subject={} result={}",
-                    ms,
+                    verifyMs,
                     flow,
                     sid,
                     subject,
-                    (localUserInfo != null ? "ok" : "register")
+                    resultLabel
             );
+
+            if ("code".equals(flow)) {
+                long fullMs = (endNs - handlerStartNs) / 1_000_000L;
+                logger.info(
+                        "RP_CODE_TO_LOGIN_TIME ms={} flow={} sid={} subject={} result={}",
+                        fullMs,
+                        flow,
+                        sid,
+                        subject,
+                        resultLabel
+                );
+            }
 
             return resultJson;
         } catch (Exception e) {

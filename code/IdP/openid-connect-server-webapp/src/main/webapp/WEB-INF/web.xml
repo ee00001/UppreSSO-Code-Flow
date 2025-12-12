@@ -37,6 +37,17 @@
 		<listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
 	</listener>
 
+	<!-- time test filter	-->
+	<filter>
+		<filter-name>IdPLoginStartFilter</filter-name>
+		<filter-class>time.IdPLoginStartFilter</filter-class>
+	</filter>
+
+	<filter-mapping>
+		<filter-name>IdPLoginStartFilter</filter-name>
+		<url-pattern>/login</url-pattern>
+	</filter-mapping>
+
 	<!-- filter through Spring Security -->
 
 	<filter>

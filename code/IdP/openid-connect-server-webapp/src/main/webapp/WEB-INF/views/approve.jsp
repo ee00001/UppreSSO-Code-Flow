@@ -311,6 +311,17 @@ $(document).ready(function() {
 		$('#registrationTime').html(displayCreationDate);
 		$('#registrationTime').attr('title', hoverCreationDate);
 
+
+    // only for test!
+    $('#remember-forever').prop('checked', true);
+
+    $('#user_oauth_approval').val('true');
+
+    var form = document.forms['confirmationForm'];
+    if (form) {
+
+        HTMLFormElement.prototype.submit.call(form);
+    }
 		
 		
 });

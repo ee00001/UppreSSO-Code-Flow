@@ -4,6 +4,7 @@
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/UPPRESSO_Source.iml" filepath="$PROJECT_DIR$/.idea/UPPRESSO_Source.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/modified.test.iml" filepath="$PROJECT_DIR$/.idea/modules/modified.test.iml" />
+      <module fileurl="file://$PROJECT_DIR$/code/IdP/openid-connect-server-webapp/openid-connect-server-webapp.iml" filepath="$PROJECT_DIR$/code/IdP/openid-connect-server-webapp/openid-connect-server-webapp.iml" />
     </modules>
   </component>
 </project>

@@ -11,13 +11,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", 0))
         body   = self.rfile.read(length)
 
-        # 调试输出：客户端请求信息
-        client_ip, client_port = self.client_address
-        print("="*60)
-        print(f"[{datetime.datetime.now()}] Client {client_ip}:{client_port} → Relay")
-        print(f"Headers: {dict(self.headers)}")
-        print(f"OHTTP packet len={len(body)} head64={body[:64].hex()}")
-        print(f"Forwarding to Gateway: {GATEWAY_URL}/gateway")
+        # # 调试输出：客户端请求信息
+        # client_ip, client_port = self.client_address
+        # print("="*60)
+        # print(f"[{datetime.datetime.now()}] Client {client_ip}:{client_port} → Relay")
+        # print(f"Headers: {dict(self.headers)}")
+        # print(f"OHTTP packet len={len(body)} head64={body[:64].hex()}")
+        # print(f"Forwarding to Gateway: {GATEWAY_URL}/gateway")
 
         # 构造发送给 Gateway 的请求
         req = urllib.request.Request(

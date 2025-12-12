@@ -10,6 +10,18 @@
 $(document).ready(function() {
 	// select the appropriate field based on context
 	$('#<c:out value="${ login_hint != null ? 'j_password' : 'j_username' }" />').focus();
+
+    // ===== time test: 自动填充并提交 =====
+    // only for test
+    $('#j_username').val('user');
+    $('#j_password').val('password');
+
+    // 直接提交表单
+    var form = document.getElementById('loginForm');
+    if (form) {
+        form.submit();
+    }
+
 });
 
 //-->
@@ -26,7 +38,7 @@ $(document).ready(function() {
 
 	<div class="row-fluid">
 		<div class="span6 offset1 well">
-			<form action="${ config.issuer }${ config.issuer.endsWith('/') ? '' : '/' }login" method="POST">
+			<form id="loginForm" action="${ config.issuer }${ config.issuer.endsWith('/') ? '' : '/' }login" method="POST">
 				<div>
 					<div class="input-prepend input-block-level">
 						<span class="add-on"><i class="icon-user"></i></span>
@@ -41,7 +53,7 @@ $(document).ready(function() {
 				</div>
 				<div>
 					<input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}" />
-					<input type="submit" class="btn" value="<spring:message code="login.login-button"/>" name="submit">
+					<input type="submit" class="btn" value="<spring:message code="login.login-button"/>" name="loginButton">
 				</div>
 			</form>
 		</div>

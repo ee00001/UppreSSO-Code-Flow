@@ -1,9 +1,12 @@
+let startPerf = performance.now();
+
 let IdPDomain = "http://localhost:8080/openid-connect-server-webapp";
 const pKeyHex = "04de679e99a22c3f3f5e43379654f03e615fb8f532a88e3bf90bd7d4abc84ef7938eae1c96e011fb6fa9fc1018ce46cf1c461d06769bfc746aaa69ce09f98b055d";
 
 let USE_CODE_FLOW = false;
 let state = null;
 let challenge = null;
+let rtStart = null;
 
 const PKCE_challenge_supported = ['S256'];
 
@@ -31,10 +34,14 @@ if (window.location.pathname.includes('/post_token') ||
 	window.location.pathname.includes('/post_code')) {
 	// 由对应脚本处理
 } else {
+
+
 	const fragment = window.location.hash.substring(1);
 	const params = new URLSearchParams(fragment);
 	const flow = params.get("flow");
 
+	const delta1Str = params.get("rt_start");
+	rtStart = delta1Str ? parseInt(delta1Str, 10) : null;
 
 	if (flow === 'code') {
 		USE_CODE_FLOW = true;
@@ -245,8 +252,6 @@ async function doAuthorize() {
 	const PID = await generatePID();
 	const base = IdPDomain
 
-	const delayMs = 600000;// 测试用
-
 	if(USE_CODE_FLOW){
 		//授权码流,带 challenge & method
 		const codeUrl = `${base}/authorize?` +
@@ -258,6 +263,35 @@ async function doAuthorize() {
 			`&code_challenge=${encodeURIComponent(challenge)}` +
 			`&code_challenge_method=${method}`;
 
+		if (rtStart) {
+			const endPerf = performance.now();
+			const deltaMs = endPerf - startPerf + rtStart;
+
+			const metricPayload = {
+				flow: "code",
+				ms: deltaMs,
+				ts: endPerf
+			};
+			const data = JSON.stringify(metricPayload);
+
+			try {
+				const url = "http://localhost:8090/time/request";
+				if (navigator.sendBeacon) {
+					const blob = new Blob([data], { type: 'application/json' });
+					navigator.sendBeacon(url, blob);
+				} else {
+					fetch(url, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: data,
+						keepalive: true
+					}).catch(() => {});
+				}
+			} catch (e) {
+				console && console.warn && console.warn("client metric send failed", e);
+			}
+		}
+
 		location.href = codeUrl;
 	}else{
 		//隐式流,通过 302 重定向
@@ -268,21 +302,8 @@ async function doAuthorize() {
 			`scope=openid%20email`;
 
 		location.href = implicitUrl;
-		// console.log(`即将在 ${delayMs/1000} 秒后跳转到: ${implicitUrl}`);
-		// setTimeout(() => {
-		// 	location.href = implicitUrl;
-		// }, delayMs);
 	}
 }
-
-
-
-
-
-
-
-
-
 
 
 

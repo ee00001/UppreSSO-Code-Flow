@@ -25,10 +25,9 @@ public class RequestTimeController {
         String sid = (session != null) ? session.getId() : "no-session";
 
         logger.info(
-                "RP_REQUEST_GENERATE_TIME ms={} flow={} state={} ts={} sid={}",
+                "RP_REQUEST_GENERATE_TIME ms={} flow={} ts={} sid={}",
                 p.getMs(),
                 p.getFlow(),
-                p.getState(),
                 p.getTs(),
                 sid
         );
