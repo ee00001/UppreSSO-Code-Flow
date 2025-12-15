@@ -68,7 +68,7 @@ export async function onBTNClick() {
 // 授权码流入口
 export async function onBTNClickCode(){
     // time test
-    const startPerf = performance.now();
+    const startPerf = Date.now();
 
     const {t, challenge, method} = await fetch(`${RPDomain}/getT?flow=code`, { credentials: 'include' }).then(r => r.json());
 
@@ -82,7 +82,7 @@ export async function onBTNClickCode(){
         `&state=${state}` +
         `&code_challenge=${encodeURIComponent(challenge)}` +
         `&code_challenge_method=${method}`+
-        `&rt_start=${performance.now() - startPerf}`;
+        `&rt_start=${startPerf}`;
 
     location.href = CodeFlowUrl;
 }

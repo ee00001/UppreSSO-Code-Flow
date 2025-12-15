@@ -1,5 +1,3 @@
-let startPerf = performance.now();
-
 let IdPDomain = "http://localhost:8080/openid-connect-server-webapp";
 const pKeyHex = "04de679e99a22c3f3f5e43379654f03e615fb8f532a88e3bf90bd7d4abc84ef7938eae1c96e011fb6fa9fc1018ce46cf1c461d06769bfc746aaa69ce09f98b055d";
 
@@ -264,8 +262,8 @@ async function doAuthorize() {
 			`&code_challenge_method=${method}`;
 
 		if (rtStart) {
-			const endPerf = performance.now();
-			const deltaMs = endPerf - startPerf + rtStart;
+			const endPerf = Date.now();
+			const deltaMs = endPerf -  rtStart;
 
 			const metricPayload = {
 				flow: "code",

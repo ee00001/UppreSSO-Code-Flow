@@ -27,7 +27,7 @@ public class AuthorizationCodeExchange {
         KeyConfigResult(OHttpHeaderKeyConfig h, byte[] pk) { this.header = h; this.publicKey = pk; }
     }
 
-    public static Map<String, String> exchangeCodeForToken(
+    public static TokenExchangeResult exchangeCodeForToken(
             String code, String idpDomain, String verifier) throws Exception {
 
         //  拉取/缓存公钥
@@ -40,26 +40,15 @@ public class AuthorizationCodeExchange {
         OHttpClient ohttpClient = new OHttpClient(kcr.header, kcr.publicKey);
         byte[] plaintextResp = ohttpClient.sendOHttpRequest(bhttp, RELAY_URL);
 
+        // time test
+        long deserializeNs = System.nanoTime();
+
         BinaryHttpResponse bresp = BinaryHttpResponse.deserialize(plaintextResp);
 
         String json = new String(bresp.getBody(), StandardCharsets.UTF_8);
+        Map<String, String> map = new Gson().fromJson(json, Map.class);
 
-//        byte[] bodyBytes = bresp.getBody();
-//        System.out.println("[dbg] bodyBytes=" + bodyBytes.length + " bytes");
-
-//        // 打印服务器结果，测试用
-//        try {
-//            com.google.gson.Gson prettyGson = new com.google.gson.GsonBuilder()
-//                    .setPrettyPrinting()
-//                    .disableHtmlEscaping()
-//                    .create();
-//            com.google.gson.JsonElement je = com.google.gson.JsonParser.parseString(json);
-//            System.out.println("[dbg] json pretty:\n" + prettyGson.toJson(je));
-//        } catch (com.google.gson.JsonSyntaxException e) {
-//            System.out.println("[dbg] not valid JSON, raw body shown above. reason=" + e.getMessage());
-//        }
-
-        return new Gson().fromJson(json, Map.class);
+        return  new TokenExchangeResult(map, deserializeNs);
     }
 
 

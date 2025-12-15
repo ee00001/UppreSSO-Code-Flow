@@ -22,7 +22,7 @@ public class IdPAuthCodeIssueFilter implements Filter {
 
 	@Override
 	public void init(FilterConfig filterConfig) throws ServletException {
-		logger.info("== IdPAuthCodeIssueFilter init ==");
+		// no-op
 	}
 
 	@Override
@@ -30,8 +30,6 @@ public class IdPAuthCodeIssueFilter implements Filter {
 
 		HttpServletRequest request  = (HttpServletRequest) req;
 		HttpServletResponse response = (HttpServletResponse) res;
-
-		String uri = request.getRequestURI();
 
 		HttpSession session = request.getSession(false);
 		final Long startNsObj = (session != null)

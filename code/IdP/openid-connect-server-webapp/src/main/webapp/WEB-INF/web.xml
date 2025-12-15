@@ -48,6 +48,26 @@
 		<url-pattern>/login</url-pattern>
 	</filter-mapping>
 
+	<filter>
+		<filter-name>IdPAuthCodeIssueFilter</filter-name>
+		<filter-class>time.IdPAuthCodeIssueFilter</filter-class>
+	</filter>
+
+	<filter-mapping>
+		<filter-name>IdPAuthCodeIssueFilter</filter-name>
+		<url-pattern>/authorize</url-pattern>
+	</filter-mapping>
+
+	<filter>
+		<filter-name>IdPCode4TokenProcessFilter</filter-name>
+		<filter-class>time.IdPCode4TokenProcessFilter</filter-class>
+	</filter>
+
+	<filter-mapping>
+		<filter-name>IdPCode4TokenProcessFilter</filter-name>
+		<url-pattern>/gateway</url-pattern>
+	</filter-mapping>
+
 	<!-- filter through Spring Security -->
 
 	<filter>

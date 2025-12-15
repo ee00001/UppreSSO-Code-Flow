@@ -3,12 +3,9 @@ import com.google.gson.Gson;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
+import sdk.*;
 import sdk.Bean.UserInfo;
 import sdk.Bean.UserManager;
-import sdk.PkceUtil;
-import sdk.Recluse;
-import sdk.RecluseToken;
-import sdk.AuthorizationCodeExchange;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
@@ -35,6 +32,8 @@ import org.slf4j.LoggerFactory;
 public class HelloController {
     private static final Logger logger = LoggerFactory.getLogger(HelloController.class);
 
+    private static final String ATTR_SSO_START_NS = "rp_sso_start_ns";
+
     Recluse recluse = new Recluse();
     private static final String SESSION_VERIFIER_KEY = "pkce_verifier";
 
@@ -52,8 +51,9 @@ public class HelloController {
     @RequestMapping(value = "/getT", method = RequestMethod.GET, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     public Object getT(HttpSession session, @RequestParam(value = "flow", required = false) String flow){
-
-//        logger.info("/getT sid={} flow={}", session.getId(), flow);
+        long startNs = System.nanoTime();
+        session.setAttribute(ATTR_SSO_START_NS, startNs);
+        logger.info("RP_SSO_START sid={} startNs={}", session.getId(), startNs);
 
         try {
             // 生成椭圆曲线密钥对
@@ -92,12 +92,15 @@ public class HelloController {
     @ResponseBody
     public String authorization(@RequestBody String body, HttpServletRequest request) {
         // time test
-        long handlerStartNs = System.nanoTime();
         long verifyStartNs;
 
         HttpSession session = request.getSession(false);
         String sid = (session != null) ? session.getId() : "no-session";
-//        logger.info("/authorization sid={}", sid);
+
+        // time test
+        Long startNsObj = (session != null)
+                ? (Long) session.getAttribute(ATTR_SSO_START_NS)
+                : null;
 
         Gson gson = new Gson();
         JsonObject jsonObj = gson.fromJson(body, JsonObject.class);
@@ -125,10 +128,12 @@ public class HelloController {
                 }
                 request.getSession().removeAttribute(SESSION_VERIFIER_KEY);
 
-                Map<String, String> resp = AuthorizationCodeExchange.exchangeCodeForToken(
+                TokenExchangeResult exchangeResult = AuthorizationCodeExchange.exchangeCodeForToken(
                         code, IdPDomain, verifier);
 
-                verifyStartNs = System.nanoTime();
+                verifyStartNs = exchangeResult.getDeserializeNs();
+
+                Map<String, String> resp = exchangeResult.getBody();
 
                 tokenStr = resp.get("id_token");
                 if (tokenStr == null) {
@@ -151,7 +156,7 @@ public class HelloController {
                 return "{\"result\":\"error\"}";
             }
 
-            //验证token有效性，提取用户身份
+            // 验证token有效性，提取用户身份
             recluse.receiveToken(tokenStr, t);
             RecluseToken token = recluse.getToken();
 
@@ -161,12 +166,6 @@ public class HelloController {
 
                 logger.warn("RP_TOKEN_VERIFY_LOGIN_TIME ms={} flow={} sid={} result=invalid_token",
                         verifyMs, flow, sid);
-
-                if ("code".equals(flow)) {
-                    long fullMs = (endNs - handlerStartNs) / 1_000_000L;
-                    logger.warn("RP_CODE_TO_LOGIN_TIME ms={} flow={} sid={} result=invalid_token",
-                            fullMs, flow, sid);
-                }
 
                 return "{\"result\":\"error\"}";
             }
@@ -199,16 +198,17 @@ public class HelloController {
                     resultLabel
             );
 
-            if ("code".equals(flow)) {
-                long fullMs = (endNs - handlerStartNs) / 1_000_000L;
+            if (startNsObj != null) {
+                long totalMs = (endNs - startNsObj) / 1_000_000L;
                 logger.info(
-                        "RP_CODE_TO_LOGIN_TIME ms={} flow={} sid={} subject={} result={}",
-                        fullMs,
+                        "RP_TOTAL_LOGIN_TIME ms={} flow={} sid={} subject={} result={}",
+                        totalMs,
                         flow,
                         sid,
                         subject,
                         resultLabel
                 );
+                session.removeAttribute(ATTR_SSO_START_NS);
             }
 
             return resultJson;
