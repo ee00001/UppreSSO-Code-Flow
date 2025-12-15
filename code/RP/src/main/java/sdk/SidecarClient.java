@@ -21,7 +21,7 @@ final class SidecarClient {
             System.getenv("SIDECAR_BASE") != null ? System.getenv("SIDECAR_BASE") : DEFAULT_BASE
     );
 
-    private static final int PREFETCH = Integer.getInteger("sidecar.prefetch", 10);
+    private static final int PREFETCH = Integer.getInteger("sidecar.prefetch", 20);
     private static final int TIMEOUT_MS = Integer.getInteger("sidecar.timeoutMs", 1500);
     private static final Gson GSON = new Gson();
     private static final Type MAP_TYPE = new TypeToken<Map<String, Object>>(){}.getType();
