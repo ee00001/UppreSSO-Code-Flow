@@ -5,6 +5,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- no referrer   -->
     <meta name="referrer" content="no-referrer">
     <title>UPRESSO</title>
     <link rel="stylesheet" href="css/style.css">
@@ -41,12 +42,12 @@
             </div>
 
             <div class="social-login">
-                <button class="social-btn" id="sso">
+                <button class="social-btn" id="sso" type="button">
                     <img src="pics/shield.png" alt="icon" style="width:18px;height:18px;">
                     Continue with UPPRSSO (Implict Flow)
                 </button>
 
-                <button class="social-btn" id="sso-code" style="margin-top:10px;">
+                <button class="social-btn" id="sso-code" type="button">
                     <img src="pics/shield.png" alt="icon" style="width:18px;height:18px;">
                     Continue with UPPRSSO (Code Flow)
                 </button>
@@ -61,9 +62,15 @@
 <script type="module">
     import { onBTNClick, onBTNClickCode } from './js/RP.js';
 
-    document.getElementById("sso").addEventListener("click", onBTNClick);
+    document.getElementById("sso").addEventListener("click", (e) => {
+        e.preventDefault();
+        onBTNClick(e);
+    });
 
-    document.getElementById("sso-code").addEventListener("click", onBTNClickCode);
+    document.getElementById("sso-code").addEventListener("click", (e) => {
+        e.preventDefault();
+        onBTNClickCode(e);
+    });
 </script>
 </body>
 </html>
